@@ -2,8 +2,8 @@ import ElementPlus from 'element-plus'
 import {mount,flushPromises} from '@vue/test-utils'
 import {beforeEach,afterEach,expect,it,vi} from 'vitest'
 import AssetChecksView from './AssetChecksView.vue'
-const mocks=vi.hoisted(()=>({list:vi.fn(),ops:vi.fn()}))
-vi.mock('@/api/asset-ops',async importOriginal=>({...await importOriginal<typeof import('@/api/asset-ops')>(),listOps:mocks.list,ops:mocks.ops}))
+const mocks=vi.hoisted(()=>({list:vi.fn(),ops:vi.fn(),export:vi.fn()}))
+vi.mock('@/api/asset-ops',async importOriginal=>({...await importOriginal<typeof import('@/api/asset-ops')>(),listOps:mocks.list,ops:mocks.ops,exportSheet:mocks.export}))
 vi.mock('@/stores/auth',()=>({useAuthStore:()=>({user:{id:'u1',roles:[{code:'asset_manager'}]}})}))
 const tasks=['a','b'].map(id=>({id,name:`任务${id}`,state:'ACTIVE',assigneeId:'u1',site:{name:'示例机房'}}))
 const row=(taskId:string,name:string)=>({id:`line-${taskId}`,taskId,name,kind:'DEVICE',targetId:taskId,code:`DEV-${taskId}`,expected:1,result:'UNSCANNED'})
@@ -53,4 +53,37 @@ it('opens the new task after creation while its save operation is still finishin
  create.click();await flushPromises()
  expect(mocks.list).toHaveBeenCalledWith('checks/c/lines')
  expect(wrapper.text()).toContain('新建任务C');expect(wrapper.text()).toContain('设备c');wrapper.unmount()
+})
+
+it('pages and filters both check tables while scanning and export retain the full task scope',async()=>{
+ const lines=Array.from({length:61},(_,i)=>({...row('a',`设备${61-i}`),id:`line-${61-i}`,code:`DEV${61-i}`,targetId:`d-${61-i}`}))
+ const discoveries=Array.from({length:61},(_,i)=>({id:`f-${61-i}`,code:`F-${61-i}`,note:`现场${61-i}`,resolution:''}))
+ mocks.list.mockImplementation(async path=>path==='checks'?tasks:path==='checks/a/lines'?lines:path==='checks/a/discoveries'?discoveries:[])
+ const w=await render();await w.findAll('.ops-task-card')[0]!.trigger('click');await flushPromises()
+ const tables=()=>w.findAll('.ops-check-main .el-table')
+ expect(tables()[0]!.findAll('.el-table__body tbody tr')).toHaveLength(20)
+ expect(tables()[1]!.findAll('.el-table__body tbody tr')).toHaveLength(20)
+ await w.get('button[aria-label="按设备 / 备件排序"]').trigger('click');await flushPromises()
+ expect(tables()[0]!.find('.el-table__body tbody tr').text()).toContain('设备1')
+ const pagers=()=>w.findAll('nav.table-pager')
+ await pagers()[0]!.get('.btn-next').trigger('click');await flushPromises()
+ expect(tables()[0]!.find('.el-table__body tbody tr').text()).toContain('设备21')
+ await w.get('button[aria-label="按识别码排序"]').trigger('click');await flushPromises()
+ await pagers()[1]!.get('.btn-next').trigger('click');await flushPromises()
+ expect(tables()[1]!.find('.el-table__body tbody tr').text()).toContain('F-21')
+ expect(pagers()[0]!.get('.el-pager .is-active').text()).toBe('2')
+ await w.get('input[aria-label="搜索盘点明细"]').setValue('设备1')
+ await w.get('input[aria-label="搜索发现记录"]').setValue('现场61')
+ await new Promise(resolve=>setTimeout(resolve,330));await flushPromises()
+ await w.findAll('button').find(b=>b.text()==='导出全部结果')!.trigger('click')
+ const exported=mocks.export.mock.calls.find(call=>call[0]==='盘点结果')![1]
+ const findings=mocks.export.mock.calls.find(call=>call[0]==='盘点发现记录')![1]
+ expect(exported).toHaveLength(61);expect(exported[0].名称).toBe('设备1');expect(exported[60].名称).toBe('设备61')
+ expect(findings).toHaveLength(61);expect(findings[0].识别码).toBe('F-1');expect(findings[60].识别码).toBe('F-61')
+ const scan=w.get('input[placeholder="扫描标签，或输入资产编号 / SN"]')
+ await scan.setValue('DEV61');await w.findAll('button').find(b=>b.text()==='识别核对')!.trigger('click');await flushPromises()
+ expect(document.body.textContent).toContain('核对现场实物')
+ expect(document.body.textContent).toContain('设备61')
+ expect(mocks.ops).not.toHaveBeenCalled()
+ w.unmount()
 })

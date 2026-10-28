@@ -10,8 +10,9 @@ const props=defineProps<{rows:any[];sites:any[];stockId?:string}>()
 function siteName(id:string){const site=props.sites.find(s=>s.id===id);return site?site.region+' / '+site.name:'—'}
 function destination(row:any){return !!props.stockId&&row.operation==='TRANSFER'&&row.destinationStockId===props.stockId}
 
-const { page, pageSize, total, pageRows, tableRef, sortBy, onSortChange } = useClientTable(() => props.rows, {operationLabel: row => moveLabels[row.operation]||row.operation, quantityAfter: row => destination(row)?row.quantity:row.afterQuantity, stateAfter: row => destination(row)?stockStates.TRANSIT:stockStates[row.afterState], siteLabel: row => siteName(row.sourceSiteId)+(row.destinationSiteId?' → '+siteName(row.destinationSiteId):'')})
+const { page, pageSize, total, pageRows, sortedRows, tableRef, sortBy, onSortChange } = useClientTable(() => props.rows, {operationLabel: row => moveLabels[row.operation]||row.operation, quantityAfter: row => destination(row)?row.quantity:row.afterQuantity, stateAfter: row => destination(row)?stockStates.TRANSIT:stockStates[row.afterState], siteLabel: row => siteName(row.sourceSiteId)+(row.destinationSiteId?' → '+siteName(row.destinationSiteId):'')})
 const { columnWidths, resizeColumn } = useColumnWidths({"stock.spec.name": 180, "operationLabel": 105, "quantityAfter": 120, "stateAfter": 160, "siteLabel": 220, "reason": 200, "createdAt": 175})
+defineExpose({ exportRows: () => sortedRows.value })
 </script>
 <template>
   <el-table :data="pageRows" ref="tableRef" @sort-change="onSortChange" empty-text="暂无库存流水">

@@ -11,16 +11,13 @@ export function useDebouncedValue<T>(source: MaybeRefOrGetter<T>, delay = 300) {
   onScopeDispose(() => clearTimeout(timer))
   return result
 }
-/** Client-side table view. The source must contain the complete filtered result;
- * never apply this to one server page and describe it as global sorting. */
-export function useTableView<T>(source: MaybeRefOrGetter<readonly T[]>, initialPageSize = 20, accessors: Record<string, (row: T) => unknown> = {}) {
-  const page = ref(1), pageSize = ref(initialPageSize), sortKey = ref(''), sortOrder = ref<TableOrder>(null)
-  const sortedRows = computed(() => {
-    const rows = [...toValue(source)]
-    if (!sortKey.value || !sortOrder.value) return rows
-    const direction = sortOrder.value === 'ascending' ? 1 : -1
+/** Sort a complete collection without changing membership or mutating input. */
+export function sortTableRows<T>(source: readonly T[], sortKey: string, sortOrder: TableOrder, accessors: Record<string, (row: T) => unknown> = {}): T[] {
+    const rows = [...source]
+    if (!sortKey || !sortOrder) return rows
+    const direction = sortOrder === 'ascending' ? 1 : -1
     return rows.map((row, index) => ({ row, index })).sort((a, b) => {
-      const get = accessors[sortKey.value] || ((row: T) => fieldValue(row, sortKey.value))
+      const get = (Object.prototype.hasOwnProperty.call(accessors, sortKey) ? accessors[sortKey] : undefined) || ((row: T) => fieldValue(row, sortKey))
       const x = get(a.row), y = get(b.row)
       const emptyX = x == null || x === '', emptyY = y == null || y === ''
       if (emptyX !== emptyY) return emptyX ? 1 : -1
@@ -28,7 +25,13 @@ export function useTableView<T>(source: MaybeRefOrGetter<readonly T[]>, initialP
       const result = typeof x === 'number' && typeof y === 'number' ? x - y : collator.compare(String(x), String(y))
       return result * direction || a.index - b.index
     }).map(item => item.row)
-  })
+}
+
+/** Client-side table view. The source must contain the complete filtered result;
+ * never apply this to one server page and describe it as global sorting. */
+export function useTableView<T>(source: MaybeRefOrGetter<readonly T[]>, initialPageSize = 20, accessors: Record<string, (row: T) => unknown> = {}) {
+  const page = ref(1), pageSize = ref(initialPageSize), sortKey = ref(''), sortOrder = ref<TableOrder>(null)
+  const sortedRows = computed(() => sortTableRows(toValue(source), sortKey.value, sortOrder.value, accessors))
   const total = computed(() => sortedRows.value.length)
   const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
   const pageRows = computed(() => sortedRows.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))

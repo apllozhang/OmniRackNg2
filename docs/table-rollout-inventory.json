@@ -3,7 +3,7 @@
     "file": "frontend/src/components/SpareMovementTable.vue",
     "tables": [
       {
-        "line": 17,
+        "line": 18,
         "tag": "<el-table :data=\"pageRows\" ref=\"tableRef\" @sort-change=\"onSortChange\" empty-text=\"暂无库存流水\">"
       }
     ],
@@ -64,25 +64,26 @@
     "file": "frontend/src/views/SparePartsView.vue",
     "tables": [
       {
-        "line": 46,
-        "tag": "<el-table :data=\"filtered\" row-key=\"id\" :empty-text=\"stocks.length?'没有匹配的备件，请调整筛选条件':canWrite?'暂无备件，点击上方录入备件开始登记':'暂无备件记录'\" @selection-change=\"selected=$event\">"
+        "line": 76,
+        "tag": "<el-table :data=\"stockPageRows\" ref=\"stockTable\" @sort-change=\"onStockSortChange\" row-key=\"id\" :empty-text=\"stocks.length?'没有匹配的备件，请调整筛选条件':canWrite?'暂无备件，点击上方录入备件开始登记':'暂无备件记录'\" @selection-change=\"selected=$event\">"
       },
       {
-        "line": 47,
-        "tag": "<el-table :data=\"summary\">"
+        "line": 77,
+        "tag": "<el-table :data=\"summaryPageRows\" ref=\"summaryTable\" @sort-change=\"onSummarySortChange\">"
       },
       {
-        "line": 49,
-        "tag": "<el-table :data=\"specs\">"
+        "line": 79,
+        "tag": "<el-table :data=\"specPageRows\" ref=\"specTable\" @sort-change=\"onSpecSortChange\">"
       },
       {
-        "line": 50,
-        "tag": "<el-table :data=\"minimums\">"
+        "line": 80,
+        "tag": "<el-table :data=\"minimumPageRows\" ref=\"minimumTable\" @sort-change=\"onMinimumSortChange\">"
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited",
-    "shared_pager_tags": 0
+    "status": "four client tables implemented: stocks, room summary, specs, minimum rules; real Element and real browser61-row sorting/paging/search verified; stock/summary complete sorted exports verified; label selections clear across page/filter/sort; full form choices retained; broad visual acceptance pending",
+    "shared_pager_tags": 4,
+    "export_semantics": "Stock and summary export complete sorted filtered results, never the page. History export uses complete child sorted collection and retains transfer source/destination interpretation."
   },
   {
     "file": "frontend/src/views/AssetRemindersView.vue",
@@ -112,17 +113,18 @@
     "file": "frontend/src/views/AssetChecksView.vue",
     "tables": [
       {
-        "line": 52,
-        "tag": "<el-table :data=\"lines\">"
+        "line": 70,
+        "tag": "<el-table :data=\"linePageRows\" ref=\"lineTable\" @sort-change=\"onLineSortChange\">"
       },
       {
-        "line": 52,
-        "tag": "<el-table :data=\"discoveries\">"
+        "line": 70,
+        "tag": "<el-table :data=\"discoveryPageRows\" ref=\"discoveryTable\" @sort-change=\"onDiscoverySortChange\">"
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited",
-    "shared_pager_tags": 0
+    "status": "two client tables implemented: check lines and discoveries; independent sorting/paging/search, task scope retained for scanning and full exports; real Element and real browser61 lines/61 findings, two full Excel exports under filters, off-display scan confirmed via HTTP; broad visual acceptance pending",
+    "shared_pager_tags": 2,
+    "export_semantics": "Export explicitly includes all task records in current sort, regardless of display filters/pages. Scanner matching always uses complete task snapshot."
   },
   {
     "file": "frontend/src/views/AdminView.vue",
