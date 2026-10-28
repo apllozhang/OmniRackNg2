@@ -5839,7 +5839,57 @@
             "required": false,
             "schema": {
               "default": 1,
+              "maximum": 10000,
+              "minimum": 1,
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "description": "对完整结果搜索；SQL通配符按字面匹配。",
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "description": "与 sortOrder 同时提供；省略两者恢复默认排序，同值按 id 稳定排序。",
+              "enum": [
+                "action",
+                "createdAt",
+                "requestId",
+                "resourceType"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortOrder",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string"
             }
           }
         ],
@@ -5866,9 +5916,9 @@
                               "type": "integer"
                             },
                             "pageSize": {
-                              "enum": [
-                                50
-                              ],
+                              "default": 50,
+                              "maximum": 100,
+                              "minimum": 1,
                               "type": "integer"
                             },
                             "total": {
@@ -8241,7 +8291,7 @@
         "x-contract-evidence": "Gin registry + Go AST + reviewed handler result types",
         "x-handler": "NotificationHandler.TestApproval",
         "x-source": {
-          "line": 102,
+          "line": 116,
           "path": "backend/internal/handler/notification_handler.go"
         }
       }
@@ -8257,7 +8307,59 @@
             "required": false,
             "schema": {
               "default": 1,
+              "maximum": 10000,
+              "minimum": 1,
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "description": "对完整结果搜索；SQL通配符按字面匹配。",
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "description": "与 sortOrder 同时提供；省略两者恢复默认排序，同值按 id 稳定排序。",
+              "enum": [
+                "channel",
+                "createdAt",
+                "errorMessage",
+                "source",
+                "status",
+                "summary"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortOrder",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string"
             }
           }
         ],
@@ -8284,9 +8386,9 @@
                               "type": "integer"
                             },
                             "pageSize": {
-                              "enum": [
-                                20
-                              ],
+                              "default": 20,
+                              "maximum": 100,
+                              "minimum": 1,
                               "type": "integer"
                             },
                             "total": {

@@ -1,10 +1,10 @@
 package handler
 
 import (
+	"github.com/gin-gonic/gin"
 	"omnirack-replica/backend/internal/model"
 	"omnirack-replica/backend/internal/response"
 	"omnirack-replica/backend/internal/service"
-	"github.com/gin-gonic/gin"
 )
 
 type NotificationHandler struct{ service *service.NotificationService }
@@ -79,24 +79,38 @@ func (h *NotificationHandler) Test(c *gin.Context) {
 }
 func (h *NotificationHandler) Deliveries(c *gin.Context) {
 	page := queryInt(c, "page", 1)
-	if page < 1 {
-		page = 1
+	pageSize := queryInt(c, "pageSize", 20)
+	if page < 1 || page > 10000 || pageSize < 1 || pageSize > 100 {
+		response.Error(c, 400, "INVALID_RESOURCE", "page 需为 1–10000，pageSize 需为 1–100", nil)
+		return
 	}
-	if page > 10000 {
-		page = 10000
+	order, ok := tableOrder(c, c.Query("sortBy"), c.Query("sortOrder"), map[string]string{
+		"createdAt": "created_at", "channel": "CASE WHEN channel='EMAIL' THEN '邮件' ELSE '企业微信' END",
+		"source":  "CASE WHEN test THEN '渠道测试' WHEN summary LIKE '待审批%' THEN '审批通知' ELSE '告警通知' END",
+		"summary": "summary", "status": "CASE WHEN status='SUCCESS' THEN '通道已接收' ELSE '发送失败' END", "errorMessage": "error_message",
+	}, "created_at DESC")
+	if !ok {
+		return
+	}
+	search, ok := tableSearch(c, c.Query("search"))
+	if !ok {
+		return
 	}
 	q := h.service.DB.WithContext(c.Request.Context()).Model(&model.NotificationDelivery{})
+	if search != "%%" {
+		q = q.Where("summary ILIKE ? OR error_message ILIKE ? OR message_id ILIKE ? OR recipients::text ILIKE ?", search, search, search, search)
+	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		writeResourceError(c, err)
 		return
 	}
 	items := []model.NotificationDelivery{}
-	if err := q.Order("created_at DESC").Limit(20).Offset((page - 1) * 20).Find(&items).Error; err != nil {
+	if err := q.Order(order).Limit(pageSize).Offset((page - 1) * pageSize).Find(&items).Error; err != nil {
 		writeResourceError(c, err)
 		return
 	}
-	response.Success(c, gin.H{"items": items, "total": total, "page": page, "pageSize": 20})
+	response.Success(c, gin.H{"items": items, "total": total, "page": page, "pageSize": pageSize})
 }
 
 func (h *NotificationHandler) TestApproval(c *gin.Context) {

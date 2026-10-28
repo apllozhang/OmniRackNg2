@@ -28,7 +28,7 @@
 | POST | `/api/v1/approvals/:id/reject` | `AdminHandler.Reject` | `system_admin` | JSON body | — | `backend/internal/handler/admin_handler.go:168` |
 | GET | `/api/v1/asset-ops/access/settings` | `AssetOperationsHandler.ScanAccess` | `asset_role_read_or_manager_write` | — | — | `backend/internal/handler/scan_access_handler.go:9` |
 | PUT | `/api/v1/asset-ops/access/settings` | `AssetOperationsHandler.SaveScanAccess` | `system_admin` | JSON body | — | `backend/internal/handler/scan_access_handler.go:17` |
-| GET | `/api/v1/asset-ops/audit` | `AssetOperationsHandler.Audit` | `asset_role_read_or_manager_write` | — | page | `backend/internal/handler/asset_operations_handler.go:559` |
+| GET | `/api/v1/asset-ops/audit` | `AssetOperationsHandler.Audit` | `asset_role_read_or_manager_write` | — | page, pageSize, search, sortBy, sortOrder | `backend/internal/handler/asset_operations_handler.go:559` |
 | GET | `/api/v1/asset-ops/checks` | `AssetOperationsHandler.Checks` | `asset_role_read_or_manager_write` | — | — | `backend/internal/handler/asset_operations_handler.go:291` |
 | POST | `/api/v1/asset-ops/checks` | `AssetOperationsHandler.CreateCheck` | `asset_role_read_or_manager_write` | JSON body | — | `backend/internal/handler/asset_operations_handler.go:299` |
 | POST | `/api/v1/asset-ops/checks/:id/close` | `AssetOperationsHandler.Close` | `asset_role_read_or_manager_write` | — | — | `backend/internal/handler/asset_operations_handler.go:362` |
@@ -52,8 +52,8 @@
 | GET | `/api/v1/asset-ops/movements` | `AssetOperationsHandler.Movements` | `asset_role_read_or_manager_write` | — | stockId | `backend/internal/handler/asset_operations_handler.go:229` |
 | GET | `/api/v1/asset-ops/notifications/approval-settings` | `NotificationHandler.ApprovalSettings` | `system_admin` | — | — | `backend/internal/handler/notification_handler.go:12` |
 | PUT | `/api/v1/asset-ops/notifications/approval-settings` | `NotificationHandler.SaveApprovalSettings` | `system_admin` | JSON body | — | `backend/internal/handler/notification_handler.go:21` |
-| POST | `/api/v1/asset-ops/notifications/approval-test` | `NotificationHandler.TestApproval` | `system_admin` | JSON body | — | `backend/internal/handler/notification_handler.go:102` |
-| GET | `/api/v1/asset-ops/notifications/deliveries` | `NotificationHandler.Deliveries` | `system_admin` | — | page | `backend/internal/handler/notification_handler.go:80` |
+| POST | `/api/v1/asset-ops/notifications/approval-test` | `NotificationHandler.TestApproval` | `system_admin` | JSON body | — | `backend/internal/handler/notification_handler.go:116` |
+| GET | `/api/v1/asset-ops/notifications/deliveries` | `NotificationHandler.Deliveries` | `system_admin` | — | page, pageSize, search, sortBy, sortOrder | `backend/internal/handler/notification_handler.go:80` |
 | GET | `/api/v1/asset-ops/notifications/settings` | `NotificationHandler.Settings` | `system_admin` | — | — | `backend/internal/handler/notification_handler.go:39` |
 | PUT | `/api/v1/asset-ops/notifications/settings` | `NotificationHandler.Save` | `system_admin` | JSON body | — | `backend/internal/handler/notification_handler.go:47` |
 | POST | `/api/v1/asset-ops/notifications/test` | `NotificationHandler.Test` | `system_admin` | JSON body | — | `backend/internal/handler/notification_handler.go:60` |

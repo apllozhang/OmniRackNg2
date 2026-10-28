@@ -53,5 +53,5 @@ it('shows delivery failures independently and loads server pagination',async()=>
  const w=render(NotificationDeliveriesView);await flushPromises()
  expect(w.text()).toContain('SMTP 认证失败');expect(w.text()).toContain('发送失败');expect(w.text()).toContain('待审批 · a1')
  await w.find('.el-pagination .btn-next').trigger('click');await flushPromises()
- expect(api.history).toHaveBeenLastCalledWith(2)
+ expect(api.history).toHaveBeenLastCalledWith(2,{page:2,pageSize:20})
 })

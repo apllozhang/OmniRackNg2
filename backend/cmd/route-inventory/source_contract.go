@@ -101,6 +101,7 @@ func readSourceContract(root string) (map[string]interface{}, error) {
 			key := name.Name + "." + fn.Name.Name
 			locals := map[string]ast.Expr{}
 			query := map[string]schema{}
+			tableSortFields := []string{}
 			calls := []string{}
 			meta := map[string]interface{}{"source": filepath.ToSlash(filepath.Join("backend", path)), "line": fset.Position(fn.Pos()).Line}
 			ast.Inspect(fn.Body, func(n ast.Node) bool {
@@ -113,6 +114,15 @@ func readSourceContract(root string) (map[string]interface{}, error) {
 					}
 				case *ast.CallExpr:
 					if id, ok := v.Fun.(*ast.Ident); ok {
+						if id.Name == "tableOrder" && len(v.Args) > 3 {
+							if allowed, ok := v.Args[3].(*ast.CompositeLit); ok {
+								for _, item := range allowed.Elts {
+									if pair, ok := item.(*ast.KeyValueExpr); ok {
+										tableSortFields = append(tableSortFields, literal(pair.Key))
+									}
+								}
+							}
+						}
 						if id.Name == "parseVersion" {
 							query["version"] = schema{"type": "integer", "minimum": 1, "x-required": true}
 						}
@@ -166,6 +176,15 @@ func readSourceContract(root string) (map[string]interface{}, error) {
 				}
 				return true
 			})
+			if len(tableSortFields) > 0 {
+				sort.Strings(tableSortFields)
+				query["sortBy"] = schema{"type": "string", "enum": tableSortFields, "description": "与 sortOrder 同时提供；省略两者恢复默认排序，同值按 id 稳定排序。"}
+				query["sortOrder"] = schema{"type": "string", "enum": []string{"asc", "desc"}}
+				query["page"]["minimum"], query["page"]["maximum"] = 1, 10000
+				query["pageSize"]["minimum"], query["pageSize"]["maximum"] = 1, 100
+				query["search"]["maxLength"] = 200
+				query["search"]["description"] = "对完整结果搜索；SQL通配符按字面匹配。"
+			}
 			if len(query) > 0 {
 				meta["query"] = query
 			}

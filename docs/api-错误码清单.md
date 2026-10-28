@@ -37,9 +37,12 @@
 | `INVALID_REQUEST` | 400 | 请求参数格式无效 | `backend/internal/handler/resource_handler.go:380` |
 | `INVALID_RESOURCE_ID` | 400 | 资源 ID 格式无效 | `backend/internal/handler/pdu_handler.go:29` |
 | `INVALID_RESOURCE_ID` | 400 | 资源 ID 格式无效 | `backend/internal/handler/resource_handler.go:355` |
-| `INVALID_RESOURCE` | 400 | page 不能超过 10000 | `backend/internal/handler/asset_operations_handler.go:565` |
+| `INVALID_RESOURCE` | 400 | page 需为 1–10000，pageSize 需为 1–100 | `backend/internal/handler/asset_operations_handler.go:563` |
+| `INVALID_RESOURCE` | 400 | page 需为 1–10000，pageSize 需为 1–100 | `backend/internal/handler/notification_handler.go:84` |
 | `INVALID_RESOURCE` | 400 | 动态：来自业务错误 | `backend/internal/handler/pdu_handler.go:30` |
 | `INVALID_RESOURCE` | 400 | 动态：来自业务错误 | `backend/internal/handler/resource_handler.go:403` |
+| `INVALID_RESOURCE` | 400 | sortBy 或 sortOrder 无效 | `backend/internal/handler/table_query.go:20` |
+| `INVALID_RESOURCE` | 400 | search 最多 200 字符 | `backend/internal/handler/table_query.go:28` |
 | `INVALID_USER` | 400 | 动态：来自业务错误 | `backend/internal/handler/admin_handler.go:297` |
 | `INVALID_VERSION` | 400 | version 必须是大于 0 的整数 | `backend/internal/handler/resource_handler.go:365` |
 | `LAST_ADMIN_PROTECTED` | 409 | 系统至少需要保留一个启用的管理员 | `backend/internal/handler/admin_handler.go:295` |
@@ -48,7 +51,7 @@
 | `LDAP_VERSION_CONFLICT` | 409 | LDAP 配置已被其他管理员修改，请刷新后重试 | `backend/internal/handler/admin_handler.go:303` |
 | `LOGIN_RATE_LIMITED` | 429 | 登录尝试过于频繁，请稍后重试 | `backend/internal/handler/auth_handler.go:83` |
 | `LOGOUT_FAILED` | 503 | 注销失败，请重试 | `backend/internal/handler/auth_handler.go:102` |
-| `NOTIFICATION_FAILED` | 502 | 动态：来自业务错误 | `backend/internal/handler/notification_handler.go:116` |
+| `NOTIFICATION_FAILED` | 502 | 动态：来自业务错误 | `backend/internal/handler/notification_handler.go:130` |
 | `NOTIFICATION_FAILED` | 502 | 动态：来自业务错误 | `backend/internal/handler/notification_handler.go:75` |
 | `NOT_FOUND` | 404 | 接口不存在 | `backend/internal/router/router.go:109` |
 | `NOT_READY` | 503 | 数据库尚未就绪 | `backend/internal/handler/health_handler.go:26` |

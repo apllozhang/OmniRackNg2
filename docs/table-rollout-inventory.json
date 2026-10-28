@@ -15,13 +15,14 @@
     "file": "frontend/src/components/AssetAuditPanel.vue",
     "tables": [
       {
-        "line": 11,
-        "tag": "<el-table :data=\"rows\" v-loading=\"loading\">"
+        "line": 16,
+        "tag": "<el-table ref=\"tableRef\" @sort-change=\"onSortChange\" :data=\"rows\" v-loading=\"loading\">"
       }
     ],
-    "pagination_tags": 1,
-    "status": "not yet remediated/audited",
-    "shared_pager_tags": 0
+    "pagination_tags": 0,
+    "status": "server whitelist sorting, search, variable page size and stable ID tie-break implemented; 61-row PostgreSQL handler verification and real authenticated browser/export verification; broad visual acceptance pending",
+    "shared_pager_tags": 1,
+    "sort_exceptions": "Current operator-name mapping and composite before/after JSON are not scalar audit snapshots; these columns remain unsorted. Request ID is exposed as a sortable column."
   },
   {
     "file": "frontend/src/components/PDUManager.vue",
@@ -139,13 +140,14 @@
     "file": "frontend/src/views/NotificationDeliveriesView.vue",
     "tables": [
       {
-        "line": 14,
-        "tag": "<el-table :data=\"deliveries\" v-loading=\"historyLoading\">"
+        "line": 16,
+        "tag": "<el-table ref=\"tableRef\" @sort-change=\"onSortChange\" :data=\"deliveries\" v-loading=\"historyLoading\">"
       }
     ],
-    "pagination_tags": 1,
-    "status": "not yet remediated/audited",
-    "shared_pager_tags": 0
+    "pagination_tags": 0,
+    "status": "server whitelist sorting, search, variable page size and stable ID tie-break implemented; 61-row real PostgreSQL handler verification and Element view tests; browser route load verified, data-rich visual acceptance pending",
+    "shared_pager_tags": 1,
+    "sort_exceptions": "Combined recipient list/message identifier column is multi-valued; searched but no ambiguous combined sort."
   },
   {
     "file": "frontend/src/views/RackManagementView.vue",

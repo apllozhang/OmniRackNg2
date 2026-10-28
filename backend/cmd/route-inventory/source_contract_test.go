@@ -49,3 +49,24 @@ func TestSourceContractUsesActualBindingAndJSONVisibility(t *testing.T) {
 		t.Fatal("missing error definitions")
 	}
 }
+
+func TestServerTableContractDerivesSortAllowlistAndBounds(t *testing.T) {
+	contract, err := readSourceContract("../../internal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	handlers := contract["handlers"].(map[string]interface{})
+	for _, name := range []string{"AssetOperationsHandler.Audit", "NotificationHandler.Deliveries"} {
+		query := handlers[name].(map[string]interface{})["query"].(map[string]schema)
+		fields := query["sortBy"]["enum"].([]string)
+		found := false
+		for _, field := range fields {
+			if field == "createdAt" {
+				found = true
+			}
+		}
+		if !found || len(fields) < 4 || query["pageSize"]["maximum"] != 100 || query["search"]["maxLength"] != 200 {
+			t.Fatalf("incomplete server table contract: %#v", query)
+		}
+	}
+}

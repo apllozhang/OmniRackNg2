@@ -40,7 +40,7 @@ export interface NotificationDelivery {
 export const getNotificationSettings = () => ops<NotificationSettings>('notifications/settings')
 export const saveNotificationSettings = (form: NotificationForm) => ops<NotificationSettings>('notifications/settings', 'PUT', form)
 export const testNotification = (channel: 'EMAIL' | 'WECOM') => ops('notifications/test', 'POST', { channel })
-export const getNotificationDeliveries = (page: number) => ops<{ items: NotificationDelivery[]; total: number }>(`notifications/deliveries?page=${page}`)
+export const getNotificationDeliveries = (page: number, options: {pageSize?: number; search?: string; sortBy?: string; sortOrder?: 'asc'|'desc'} = {}) => ops<{ items: NotificationDelivery[]; total: number }>(`notifications/deliveries?${new URLSearchParams(Object.entries({...options,page}).map(([key,value])=>[key,String(value)]))}`)
 
 export interface ApprovalEmailSettings {
 	weComEnabled: boolean
