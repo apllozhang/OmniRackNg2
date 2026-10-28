@@ -1,12 +1,23 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
+
+const MinPasswordBytes = 8
+const MaxPasswordBytes = 72 // bcrypt has a 72-byte input limit.
+
+func ValidatePassword(password string) error {
+	if len(password) < MinPasswordBytes || len(password) > MaxPasswordBytes {
+		return fmt.Errorf("密码长度必须为 %d 至 %d 字节", MinPasswordBytes, MaxPasswordBytes)
+	}
+	return nil
+}
 
 type BaseModel struct {
 	ID        uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
@@ -40,6 +51,9 @@ type User struct {
 }
 
 func (u *User) SetPassword(password string) error {
+	if err := ValidatePassword(password); err != nil {
+		return err
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
@@ -49,6 +63,10 @@ func (u *User) SetPassword(password string) error {
 }
 
 func (u *User) CheckPassword(password string) error {
+	// Reject overlong input before bcrypt can treat a shared prefix as a match.
+	if len(password) > MaxPasswordBytes {
+		return bcrypt.ErrPasswordTooLong
+	}
 	return bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password))
 }
 

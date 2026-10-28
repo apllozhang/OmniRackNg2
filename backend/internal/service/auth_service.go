@@ -6,17 +6,20 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 	"omnirack-replica/backend/internal/config"
 	"omnirack-replica/backend/internal/middleware"
 	"omnirack-replica/backend/internal/model"
 	"omnirack-replica/backend/internal/repository"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 var ErrInvalidCredentials = errors.New("invalid credentials")
 var ErrDisabledUser = errors.New("disabled user")
+var ErrAuthUnavailable = middleware.ErrIdentityUnavailable
 
 type AuthService struct {
 	db    *gorm.DB
@@ -43,21 +46,34 @@ func (s *AuthService) issueToken(ctx context.Context, user model.User) (LoginRes
 	for _, role := range user.Roles {
 		roles = append(roles, role.Code)
 	}
-	token, err := middleware.NewToken(s.cfg.JWTSecret, user.ID.String(), roles, s.cfg.JWTExpiresIn)
+	token, err := middleware.NewTokenWithVersion(s.cfg.JWTSecret, user.ID.String(), roles, user.Version, s.cfg.JWTExpiresIn)
 	if err != nil {
 		return LoginResult{}, err
 	}
 	now := time.Now().UTC()
-	if err := s.db.WithContext(ctx).Model(&user).Updates(map[string]interface{}{"last_login_at": now, "failed_logins": 0}).Error; err != nil {
-		return LoginResult{}, err
+	// A preloaded User contains role associations. Saving it here could restore
+	// a role concurrently removed by an administrator. Update only scalar login
+	// metadata, and reject an account changed since its credentials were read.
+	result := s.db.WithContext(ctx).Model(&model.User{}).Where("id = ? AND version = ? AND enabled = ?", user.ID, user.Version, true).Updates(map[string]interface{}{"last_login_at": now, "failed_logins": 0})
+	if result.Error != nil {
+		return LoginResult{}, fmt.Errorf("%w: %v", ErrAuthUnavailable, result.Error)
 	}
+	if result.RowsAffected != 1 {
+		return LoginResult{}, ErrInvalidCredentials
+	}
+	user.LastLoginAt = &now
+	user.FailedLogins = 0
 	return LoginResult{Token: token, User: user}, nil
 }
 
 func (s *AuthService) Login(ctx context.Context, username, password string) (LoginResult, error) {
+	username = strings.TrimSpace(username)
+	if username == "" || utf8.RuneCountInString(username) > 100 || len(password) == 0 || len(password) > 512 {
+		return LoginResult{}, ErrInvalidCredentials
+	}
 	user, findErr := repository.FindUserByUsername(ctx, s.db, username)
 	if findErr != nil && !errors.Is(findErr, gorm.ErrRecordNotFound) {
-		return LoginResult{}, ErrInvalidCredentials
+		return LoginResult{}, fmt.Errorf("%w: %v", ErrAuthUnavailable, findErr)
 	}
 	if findErr == nil && user.AuthSource == "local" {
 		if !user.Enabled {
@@ -65,7 +81,10 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (Log
 		}
 		// Local accounts never fall through to LDAP after a bad password. This
 		// prevents an LDAP account with the same name from bypassing local auth.
-		cfg, _ := s.users.GetLDAPConfig(ctx)
+		cfg, cfgErr := s.users.GetLDAPConfig(ctx)
+		if cfgErr != nil && !errors.Is(cfgErr, gorm.ErrRecordNotFound) {
+			return LoginResult{}, fmt.Errorf("%w: %v", ErrAuthUnavailable, cfgErr)
+		}
 		if cfg.Enabled && !cfg.AllowLocalFallback && !hasAdminRole(user) {
 			return LoginResult{}, ErrInvalidCredentials
 		}
@@ -80,16 +99,22 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (Log
 	if s.ldap == nil {
 		return LoginResult{}, ErrInvalidCredentials
 	}
+	cfg, cfgErr := s.users.GetLDAPConfig(ctx)
+	if errors.Is(cfgErr, gorm.ErrRecordNotFound) || cfgErr == nil && !cfg.Enabled {
+		return LoginResult{}, ErrInvalidCredentials
+	}
+	if cfgErr != nil {
+		return LoginResult{}, fmt.Errorf("%w: %v", ErrAuthUnavailable, cfgErr)
+	}
 	identity, err := s.ldap.Authenticate(ctx, username, password)
 	if err != nil {
+		if errors.Is(err, ErrLDAPUnavailable) {
+			return LoginResult{}, fmt.Errorf("%w: %v", ErrAuthUnavailable, err)
+		}
 		return LoginResult{}, ErrInvalidCredentials
 	}
 	if identity.Username == "" {
 		identity.Username = username
-	}
-	cfg, cfgErr := s.users.GetLDAPConfig(ctx)
-	if cfgErr != nil && !errors.Is(cfgErr, gorm.ErrRecordNotFound) {
-		return LoginResult{}, ErrInvalidCredentials
 	}
 	roles, roleErr := s.ldapRoles(ctx, cfg, identity.Groups)
 	if roleErr != nil {
@@ -104,7 +129,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (Log
 		}
 		user.Roles = roles
 		if err := s.db.WithContext(ctx).Create(&user).Error; err != nil {
-			return LoginResult{}, err
+			return LoginResult{}, fmt.Errorf("%w: %v", ErrAuthUnavailable, err)
 		}
 	} else {
 		user.DisplayName = identity.DisplayName
@@ -118,7 +143,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (Log
 			}
 			return nil
 		}); err != nil {
-			return LoginResult{}, err
+			return LoginResult{}, fmt.Errorf("%w: %v", ErrAuthUnavailable, err)
 		}
 		user.Roles = roles
 	}
@@ -167,5 +192,56 @@ func (s *AuthService) CurrentUser(ctx context.Context, userID string) (model.Use
 	if err != nil {
 		return model.User{}, err
 	}
-	return repository.FindUserByID(ctx, s.db, id)
+	user, err := repository.FindUserByID(ctx, s.db, id)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return model.User{}, fmt.Errorf("%w: %v", ErrAuthUnavailable, err)
+	}
+	if err == nil && !user.Enabled {
+		return model.User{}, ErrDisabledUser
+	}
+	return user, err
+}
+
+// ResolveIdentity deliberately reads the database on every authenticated
+// request. JWT roles are a client snapshot, never an authorization authority.
+func (s *AuthService) ResolveIdentity(ctx context.Context, claims *middleware.Claims) ([]string, error) {
+	if _, err := uuid.Parse(claims.UserID); err != nil {
+		return nil, ErrInvalidCredentials
+	}
+	user, err := s.CurrentUser(ctx, claims.UserID)
+	if err != nil {
+		if errors.Is(err, ErrDisabledUser) || errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("%w: %v", ErrAuthUnavailable, err)
+	}
+	if claims.UserVersion == 0 || claims.UserVersion != user.Version {
+		return nil, ErrInvalidCredentials
+	}
+	roles := make([]string, 0, len(user.Roles))
+	for _, role := range user.Roles {
+		roles = append(roles, role.Code)
+	}
+	return roles, nil
+}
+
+func (s *AuthService) AuthMiddleware() gin.HandlerFunc {
+	return middleware.Auth(s.cfg.JWTSecret, s.ResolveIdentity)
+}
+
+// Logout revokes every session for this account, including on other backend
+// processes. The same version is advanced by password and account updates.
+func (s *AuthService) Logout(ctx context.Context, userID string) error {
+	id, err := uuid.Parse(userID)
+	if err != nil {
+		return ErrInvalidCredentials
+	}
+	result := s.db.WithContext(ctx).Model(&model.User{}).Where("id = ? AND enabled = ?", id, true).UpdateColumn("version", gorm.Expr("version + 1"))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return ErrInvalidCredentials
+	}
+	return nil
 }

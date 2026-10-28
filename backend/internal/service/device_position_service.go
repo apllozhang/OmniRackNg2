@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"omnirack-replica/backend/internal/model"
-	"omnirack-replica/backend/internal/repository"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"omnirack-replica/backend/internal/model"
+	"omnirack-replica/backend/internal/repository"
 )
 
 func (s *DeviceService) Assign(ctx context.Context, actor Actor, deviceID uuid.UUID, input PositionChangeInput) (OperationResult, error) {
@@ -111,6 +111,9 @@ func executeDecommission(ctx context.Context, store repository.DeviceStore, acto
 		return OperationResult{}, fmt.Errorf("%w: 设备尚未上架", ErrDeviceNotPositioned)
 	}
 	if err != nil {
+		return OperationResult{}, err
+	}
+	if err := requirePowerDisconnected(ctx, store, deviceID); err != nil {
 		return OperationResult{}, err
 	}
 	if _, err := store.GetRackForUpdate(ctx, position.RackID); err != nil {
@@ -311,6 +314,11 @@ func executePositionChange(ctx context.Context, store repository.DeviceStore, ac
 		if device.LifecycleStatus == model.DeviceStatusScrapped {
 			return OperationResult{}, fmt.Errorf("%w: 报废设备不能迁移", ErrInvalidResource)
 		}
+		if current.RackID != input.RackID {
+			if err := requirePowerDisconnected(ctx, store, deviceID); err != nil {
+				return OperationResult{}, err
+			}
+		}
 	} else {
 		return OperationResult{}, fmt.Errorf("%w: 未知位置操作", ErrInvalidResource)
 	}
@@ -388,6 +396,17 @@ func executePositionChange(ctx context.Context, store repository.DeviceStore, ac
 		return OperationResult{}, err
 	}
 	return OperationResult{Executed: true, Device: &device, Position: &position}, nil
+}
+
+func requirePowerDisconnected(ctx context.Context, store repository.DeviceStore, deviceID uuid.UUID) error {
+	count, err := store.CountActivePowerConnections(ctx, deviceID)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return opsInvalid("请先解除设备电源连接，再跨机柜迁移或下架")
+	}
+	return nil
 }
 
 func previewPositionChange(ctx context.Context, store repository.DeviceStore, device model.Device, current model.RackDevicePosition, operation string, input PositionChangeInput) error {

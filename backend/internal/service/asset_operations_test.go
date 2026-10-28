@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"github.com/DATA-DOG/go-sqlmock"
-	"omnirack-replica/backend/internal/model"
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"omnirack-replica/backend/internal/model"
 	"testing"
 	"time"
 )
@@ -138,9 +138,9 @@ func TestDuplicateStockRequestReturnsCommittedMovementWithoutAnotherWrite(t *tes
 	actor, stock, key, record := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	m.ExpectBegin()
 	m.ExpectExec("SELECT pg_advisory_xact_lock").WillReturnResult(sqlmock.NewResult(0, 1))
-	m.ExpectQuery(`SELECT .*spare_movements`).WillReturnRows(sqlmock.NewRows([]string{"id", "stock_id", "actor_id", "submission_id"}).AddRow(record, stock, actor, key))
+	m.ExpectQuery(`SELECT .*spare_movements`).WillReturnRows(sqlmock.NewRows([]string{"id", "stock_id", "actor_id", "submission_id", "operation", "quantity", "reason"}).AddRow(record, stock, actor, key, "OUT", 2, "维修领用"))
 	m.ExpectCommit()
-	got, e := svc.MoveStock(context.Background(), Actor{UserID: &actor}, stock, SpareMoveInput{SubmissionID: key})
+	got, e := svc.MoveStock(context.Background(), Actor{UserID: &actor}, stock, SpareMoveInput{SubmissionID: key, Version: 1, Operation: "OUT", Quantity: 2, Reason: "维修领用"})
 	if e != nil || got.ID != record {
 		t.Fatalf("id=%s err=%v", got.ID, e)
 	}

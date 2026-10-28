@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"omnirack-replica/backend/internal/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"omnirack-replica/backend/internal/model"
 	"strings"
 	"time"
 )
@@ -320,7 +320,7 @@ func (s *AssetOperations) RefreshReminders(ctx context.Context) error {
 			x.OccurrenceAt = time.Now().UTC()
 			seen = append(seen, x.Key)
 			var old model.AssetReminder
-			e := tx.Where("key = ?", x.Key).First(&old).Error
+			e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("key = ?", x.Key).First(&old).Error
 			if e != nil && !errors.Is(e, gorm.ErrRecordNotFound) {
 				return e
 			}
@@ -330,7 +330,7 @@ func (s *AssetOperations) RefreshReminders(ctx context.Context) error {
 				}
 				x.BaseModel = old.BaseModel
 				x.Version++
-				if old.Title == x.Title && old.Active {
+				if old.Title == x.Title && old.Detail == x.Detail && old.Severity == x.Severity && old.Active {
 					x.AcknowledgedBy = old.AcknowledgedBy
 					x.Acknowledgement = old.Acknowledgement
 				}

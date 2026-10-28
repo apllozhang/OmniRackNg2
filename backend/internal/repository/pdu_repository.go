@@ -2,9 +2,10 @@ package repository
 
 import (
 	"context"
-	"omnirack-replica/backend/internal/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"omnirack-replica/backend/internal/model"
 	"time"
 )
 
@@ -32,7 +33,10 @@ type PDUStore interface {
 	CreateAuditLog(context.Context, *model.AuditLog) error
 }
 
-type GormPDUStore struct{ db *gorm.DB }
+type GormPDUStore struct {
+	db            *gorm.DB
+	transactional bool
+}
 type pduConnectionRow struct {
 	ID             uuid.UUID      `gorm:"column:id"`
 	CreatedAt      time.Time      `gorm:"column:created_at"`
@@ -57,7 +61,14 @@ func (r pduConnectionRow) model() model.PDUConnection {
 }
 func NewPDUStore(db *gorm.DB) *GormPDUStore { return &GormPDUStore{db: db} }
 func (s *GormPDUStore) WithinPDUTransaction(ctx context.Context, fn func(PDUStore) error) error {
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error { return fn(&GormPDUStore{db: tx}) })
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error { return fn(&GormPDUStore{db: tx, transactional: true}) })
+}
+func (s *GormPDUStore) readForMutation(ctx context.Context) *gorm.DB {
+	db := s.db.WithContext(ctx)
+	if s.transactional {
+		db = db.Clauses(clause.Locking{Strength: "UPDATE"})
+	}
+	return db
 }
 func (s *GormPDUStore) GetRack(ctx context.Context, id uuid.UUID) (model.Rack, error) {
 	var x model.Rack
@@ -66,7 +77,7 @@ func (s *GormPDUStore) GetRack(ctx context.Context, id uuid.UUID) (model.Rack, e
 }
 func (s *GormPDUStore) GetPDU(ctx context.Context, id uuid.UUID) (model.PDU, error) {
 	var x model.PDU
-	if err := s.db.WithContext(ctx).Preload("Sockets", "deleted_at IS NULL").First(&x, "id = ?", id).Error; err != nil {
+	if err := s.readForMutation(ctx).Preload("Sockets", "deleted_at IS NULL").First(&x, "id = ?", id).Error; err != nil {
 		return x, err
 	}
 	if err := s.populateSocketConnections(ctx, x.Sockets); err != nil {
@@ -88,7 +99,7 @@ func (s *GormPDUStore) ListPDUsByRack(ctx context.Context, rackID uuid.UUID) ([]
 }
 
 func (s *GormPDUStore) CreatePDU(ctx context.Context, x *model.PDU) error {
-	return s.db.WithContext(ctx).Create(x).Error
+	return s.db.WithContext(ctx).Omit("Rack", "Sockets").Create(x).Error
 }
 func (s *GormPDUStore) UpdatePDU(ctx context.Context, x *model.PDU, v uint) error {
 	r := s.db.WithContext(ctx).Model(&model.PDU{}).Where("id = ? AND version = ?", x.ID, v).Updates(map[string]interface{}{"code": x.Code, "name": x.Name, "manufacturer": x.Manufacturer, "model_number": x.ModelNumber, "serial_number": x.SerialNumber, "input_voltage": x.InputVoltage, "rated_power_w": x.RatedPowerW, "rated_current_a": x.RatedCurrentA, "status": x.Status, "remarks": x.Remarks, "version": gorm.Expr("version + 1"), "updated_at": time.Now().UTC()})
@@ -113,7 +124,7 @@ func (s *GormPDUStore) DeletePDU(ctx context.Context, id uuid.UUID, v uint) erro
 }
 func (s *GormPDUStore) GetSocket(ctx context.Context, id uuid.UUID) (model.PDUSocket, error) {
 	var x model.PDUSocket
-	err := s.db.WithContext(ctx).First(&x, "id = ?", id).Error
+	err := s.readForMutation(ctx).First(&x, "id = ?", id).Error
 	return x, err
 }
 func (s *GormPDUStore) ListSocketsByPDU(ctx context.Context, id uuid.UUID) ([]model.PDUSocket, error) {
@@ -200,7 +211,7 @@ func (s *GormPDUStore) populateConnectionDetails(ctx context.Context, connection
 	return nil
 }
 func (s *GormPDUStore) CreateSocket(ctx context.Context, x *model.PDUSocket) error {
-	return s.db.WithContext(ctx).Create(x).Error
+	return s.db.WithContext(ctx).Omit("PDU", "Connection").Create(x).Error
 }
 func (s *GormPDUStore) UpdateSocket(ctx context.Context, x *model.PDUSocket, v uint) error {
 	r := s.db.WithContext(ctx).Model(&model.PDUSocket{}).Where("id = ? AND version = ?", x.ID, v).Updates(map[string]interface{}{"socket_no": x.SocketNo, "standard": x.Standard, "amperage_a": x.AmperageA, "label": x.Label, "status": x.Status, "version": gorm.Expr("version + 1"), "updated_at": time.Now().UTC()})
@@ -214,7 +225,14 @@ func (s *GormPDUStore) UpdateSocket(ctx context.Context, x *model.PDUSocket, v u
 	return nil
 }
 func (s *GormPDUStore) SetSocketStatus(ctx context.Context, id uuid.UUID, status string) error {
-	return s.db.WithContext(ctx).Model(&model.PDUSocket{}).Where("id = ?", id).Updates(map[string]interface{}{"status": status, "updated_at": time.Now().UTC()}).Error
+	r := s.db.WithContext(ctx).Model(&model.PDUSocket{}).Where("id = ?", id).Updates(map[string]interface{}{"status": status, "version": gorm.Expr("version + 1"), "updated_at": time.Now().UTC()})
+	if r.Error != nil {
+		return r.Error
+	}
+	if r.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 func (s *GormPDUStore) DeleteSocket(ctx context.Context, id uuid.UUID, v uint) error {
 	r := s.db.WithContext(ctx).Where("id = ? AND version = ?", id, v).Delete(&model.PDUSocket{})
@@ -274,7 +292,7 @@ func (s *GormPDUStore) DeleteConnection(ctx context.Context, id uuid.UUID, v uin
 }
 func (s *GormPDUStore) GetDevice(ctx context.Context, id uuid.UUID) (model.Device, error) {
 	var x model.Device
-	err := s.db.WithContext(ctx).First(&x, "id = ?", id).Error
+	err := s.readForMutation(ctx).First(&x, "id = ?", id).Error
 	return x, err
 }
 func (s *GormPDUStore) GetPositionByDevice(ctx context.Context, id uuid.UUID) (model.RackDevicePosition, error) {

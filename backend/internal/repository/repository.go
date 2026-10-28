@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"omnirack-replica/backend/internal/model"
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"omnirack-replica/backend/internal/model"
 )
 
 func Open(databaseURL string) (*gorm.DB, error) {
@@ -15,6 +15,17 @@ func Open(databaseURL string) (*gorm.DB, error) {
 }
 
 func Migrate(db *gorm.DB) error {
+	// PostgreSQL DDL is transactional. Serialize starting replicas and roll back
+	// the entire migration if any constraint cannot be installed.
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?, ?)", 20261028, 1).Error; err != nil {
+			return err
+		}
+		return migrateSchema(tx)
+	})
+}
+
+func migrateSchema(db *gorm.DB) error {
 	if err := db.AutoMigrate(
 		&model.User{}, &model.Role{}, &model.Permission{}, &model.AuditLog{}, &model.LDAPConfig{},
 		&model.RackTemplate{}, &model.RackTemplateVersion{},
@@ -36,9 +47,8 @@ func ensureDevicePositionConstraints(db *gorm.DB) error {
 		`CREATE EXTENSION IF NOT EXISTS btree_gist`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_asset_active ON devices (asset_number) WHERE deleted_at IS NULL AND asset_number <> ''`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_rack_device_positions_device_active ON rack_device_positions (device_id) WHERE deleted_at IS NULL`,
-		`ALTER TABLE rack_u_occupancies DROP CONSTRAINT IF EXISTS rack_u_occupancies_no_overlap`,
 		`DO $$ BEGIN
-			IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rack_u_occupancies_no_overlap') THEN
+			IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rack_u_occupancies_no_overlap' AND conrelid = 'rack_u_occupancies'::regclass) THEN
 				ALTER TABLE rack_u_occupancies ADD CONSTRAINT rack_u_occupancies_no_overlap
 				EXCLUDE USING gist (rack_id WITH =, int8range(start_u, end_u, '[]') WITH &&)
 				WHERE (deleted_at IS NULL);

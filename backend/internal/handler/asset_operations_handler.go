@@ -2,15 +2,15 @@ package handler
 
 import (
 	"encoding/json"
-	"omnirack-replica/backend/internal/middleware"
-	"omnirack-replica/backend/internal/model"
-	"omnirack-replica/backend/internal/response"
-	"omnirack-replica/backend/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"net/http"
+	"omnirack-replica/backend/internal/middleware"
+	"omnirack-replica/backend/internal/model"
+	"omnirack-replica/backend/internal/response"
+	"omnirack-replica/backend/internal/service"
 	"strings"
 	"time"
 )
@@ -477,15 +477,18 @@ func (h *AssetOperationsHandler) Acknowledge(c *gin.Context) {
 	var in struct {
 		Note string `json:"note"`
 	}
-	if c.ShouldBindJSON(&in) != nil || strings.TrimSpace(in.Note) == "" {
+	if c.ShouldBindJSON(&in) != nil || strings.TrimSpace(in.Note) == "" || len(in.Note) > 2000 {
 		invalidJSON(c)
 		return
 	}
 	actor := actorFromContext(c)
-	e := h.ops.DB.Transaction(func(tx *gorm.DB) error {
+	e := h.ops.DB.WithContext(c.Request.Context()).Transaction(func(tx *gorm.DB) error {
 		var x model.AssetReminder
-		if e := tx.First(&x, "id = ?", id).Error; e != nil {
+		if e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&x, "id = ?", id).Error; e != nil {
 			return e
+		}
+		if !x.Active {
+			return service.ErrInvalidResource
 		}
 		before := x
 		x.AcknowledgedBy = actor.UserID
@@ -557,6 +560,10 @@ func (h *AssetOperationsHandler) Audit(c *gin.Context) {
 	page := queryInt(c, "page", 1)
 	if page < 1 {
 		page = 1
+	}
+	if page > service.MaxListPage {
+		response.Error(c, http.StatusBadRequest, "INVALID_RESOURCE", "page 不能超过 10000", nil)
+		return
 	}
 	query := h.ops.DB.WithContext(c.Request.Context()).Model(&model.AuditLog{}).Where("resource_type IN ?", []string{
 		"asset_site", "device", "spare_spec", "spare_stock", "spare_minimum", "asset_check", "asset_check_line", "asset_reminder", "asset_operations",

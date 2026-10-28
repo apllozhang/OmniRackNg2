@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"regexp"
 	"testing"
 
@@ -28,7 +29,6 @@ func TestEnsureDevicePositionConstraintsDoesNotRequireRemovedFaceColumns(t *test
 		`CREATE EXTENSION IF NOT EXISTS btree_gist`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_asset_active`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_rack_device_positions_device_active`,
-		`ALTER TABLE rack_u_occupancies DROP CONSTRAINT IF EXISTS rack_u_occupancies_no_overlap`,
 		`DO $$ BEGIN`,
 	}
 	for _, statement := range statements {
@@ -40,5 +40,27 @@ func TestEnsureDevicePositionConstraintsDoesNotRequireRemovedFaceColumns(t *test
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unexpected migration SQL: %v", err)
+	}
+}
+
+func TestMigrateAcquiresTransactionLockBeforeSchemaChanges(t *testing.T) {
+	sqlDB, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlDB.Close()
+	db, err := gorm.Open(postgres.New(postgres.Config{Conn: sqlDB}), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lockFailure := errors.New("database shutting down")
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta("SELECT pg_advisory_xact_lock($1, $2)")).WithArgs(20261028, 1).WillReturnError(lockFailure)
+	mock.ExpectRollback()
+	if err := Migrate(db); !errors.Is(err, lockFailure) {
+		t.Fatalf("migration continued without serialization: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
 	}
 }

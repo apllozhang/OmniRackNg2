@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"omnirack-replica/backend/internal/model"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"omnirack-replica/backend/internal/model"
 )
 
 var ErrUPositionConflict = errors.New("rack u position conflict")
@@ -46,6 +46,7 @@ type DeviceStore interface {
 	ListDevices(context.Context, DeviceQuery) ([]model.Device, int64, error)
 	GetDevice(context.Context, uuid.UUID) (model.Device, error)
 	GetDeviceForUpdate(context.Context, uuid.UUID) (model.Device, error)
+	CountActivePowerConnections(context.Context, uuid.UUID) (int64, error)
 	CountDevices(context.Context) (int64, error)
 	CreateDevice(context.Context, *model.Device) error
 	UpdateDevice(context.Context, *model.Device, uint) error

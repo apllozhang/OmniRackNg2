@@ -5,13 +5,15 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
+	"time"
 
-	"omnirack-replica/backend/internal/model"
-	"omnirack-replica/backend/internal/repository"
 	ldap "github.com/go-ldap/ldap/v3"
 	"gorm.io/gorm"
+	"omnirack-replica/backend/internal/model"
+	"omnirack-replica/backend/internal/repository"
 )
 
 var ErrLDAPUnavailable = errors.New("ldap unavailable")
@@ -81,27 +83,63 @@ func ldapURL(raw string) (string, error) {
 		return "", fmt.Errorf("%w: LDAP 地址不能为空", ErrLDAPUnavailable)
 	}
 	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Host == "" || (parsed.Scheme != "ldap" && parsed.Scheme != "ldaps") {
+	if err != nil || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Scheme != "ldap" && parsed.Scheme != "ldaps") {
 		return "", fmt.Errorf("%w: LDAP 地址格式应为 ldap:// 或 ldaps://", ErrLDAPUnavailable)
 	}
 	return raw, nil
 }
-func dialLDAP(cfg model.LDAPConfig) (*ldap.Conn, error) {
+
+const ldapOperationTimeout = 15 * time.Second
+
+// Bound the entire exchange, including TLS negotiation and LDAP responses. The
+// library's default only bounds TCP dialing; a silent directory could otherwise
+// retain a login request and its credentials indefinitely.
+func dialLDAP(ctx context.Context, cfg model.LDAPConfig) (*ldap.Conn, func(), error) {
 	raw, err := ldapURL(cfg.URL)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	conn, err := ldap.DialURL(raw, ldap.DialWithTLSConfig(&tls.Config{InsecureSkipVerify: cfg.SkipTLSVerify, MinVersion: tls.VersionTLS12}))
-	if err != nil {
-		return nil, fmt.Errorf("%w: 无法连接 LDAP 服务器", ErrLDAPUnavailable)
-	}
-	if cfg.UseTLS && strings.HasPrefix(strings.ToLower(raw), "ldap://") {
-		if err := conn.StartTLS(&tls.Config{InsecureSkipVerify: cfg.SkipTLSVerify, MinVersion: tls.VersionTLS12}); err != nil {
-			conn.Close()
-			return nil, fmt.Errorf("%w: LDAP TLS 握手失败", ErrLDAPUnavailable)
+	u, _ := url.Parse(raw)
+	port := u.Port()
+	if port == "" {
+		port = "389"
+		if u.Scheme == "ldaps" {
+			port = "636"
 		}
 	}
-	return conn, nil
+	deadline := time.Now().Add(ldapOperationTimeout)
+	if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
+		deadline = d
+	}
+	dialer := net.Dialer{Deadline: deadline}
+	socket, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(u.Hostname(), port))
+	if err != nil {
+		return nil, nil, fmt.Errorf("%w: 无法连接 LDAP 服务器", ErrLDAPUnavailable)
+	}
+	_ = socket.SetDeadline(deadline)
+	stop := context.AfterFunc(ctx, func() { _ = socket.Close() })
+	tlsConfig := &tls.Config{ServerName: u.Hostname(), InsecureSkipVerify: cfg.SkipTLSVerify, MinVersion: tls.VersionTLS12}
+	var transport net.Conn = socket
+	if u.Scheme == "ldaps" {
+		tlsConn := tls.Client(socket, tlsConfig)
+		if err := tlsConn.HandshakeContext(ctx); err != nil {
+			stop()
+			_ = socket.Close()
+			return nil, nil, fmt.Errorf("%w: LDAP TLS 握手失败", ErrLDAPUnavailable)
+		}
+		transport = tlsConn
+	}
+	conn := ldap.NewConn(transport, u.Scheme == "ldaps")
+	conn.SetTimeout(ldapOperationTimeout)
+	conn.Start()
+	closeConn := func() { stop(); _ = conn.Close() }
+	if cfg.UseTLS && u.Scheme == "ldap" {
+		if err := conn.StartTLS(tlsConfig); err != nil {
+			closeConn()
+			return nil, nil, fmt.Errorf("%w: LDAP TLS 握手失败", ErrLDAPUnavailable)
+		}
+	}
+	return conn, closeConn, nil
 }
 func bindService(conn *ldap.Conn, cfg model.LDAPConfig) error {
 	if cfg.BindDN == "" {
@@ -113,13 +151,12 @@ func bindService(conn *ldap.Conn, cfg model.LDAPConfig) error {
 	return nil
 }
 func (s *LDAPService) Test(ctx context.Context, cfg model.LDAPConfig) error {
-	_ = ctx
 	normalizeLDAPConfig(&cfg)
-	conn, err := dialLDAP(cfg)
+	conn, closeConn, err := dialLDAP(ctx, cfg)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer closeConn()
 	return bindService(conn, cfg)
 }
 
@@ -129,11 +166,11 @@ func (s *LDAPService) Authenticate(ctx context.Context, username, password strin
 		return LDAPIdentity{}, ErrLDAPUnavailable
 	}
 	normalizeLDAPConfig(&cfg)
-	conn, err := dialLDAP(cfg)
+	conn, closeConn, err := dialLDAP(ctx, cfg)
 	if err != nil {
 		return LDAPIdentity{}, err
 	}
-	defer conn.Close()
+	defer closeConn()
 	if err := bindService(conn, cfg); err != nil {
 		return LDAPIdentity{}, err
 	}
@@ -174,7 +211,9 @@ func searchUserGroups(conn *ldap.Conn, cfg model.LDAPConfig, userDN, username st
 	}
 	filter := strings.ReplaceAll(cfg.GroupFilter, "{{userDN}}", ldap.EscapeFilter(userDN))
 	filter = strings.ReplaceAll(filter, "{{username}}", ldap.EscapeFilter(username))
-	result, err := conn.Search(ldap.NewSearchRequest(base, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 2, 10, false, filter, []string{cfg.GroupAttribute, "dn"}, nil))
+	// Group membership is plural. The size limit of two is only appropriate for
+	// the user lookup, where it detects an ambiguous identity.
+	result, err := conn.Search(ldap.NewSearchRequest(base, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 10, false, filter, []string{cfg.GroupAttribute, "dn"}, nil))
 	if err != nil {
 		return nil, fmt.Errorf("%w: LDAP 用户组查询失败", ErrLDAPUnavailable)
 	}

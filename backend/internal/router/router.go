@@ -3,10 +3,11 @@ package router
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"omnirack-replica/backend/internal/handler"
 	"omnirack-replica/backend/internal/middleware"
 	"omnirack-replica/backend/internal/response"
-	"github.com/gin-gonic/gin"
+	appserver "omnirack-replica/backend/internal/server"
 )
 
 func New(authHandler *handler.AuthHandler, healthHandler *handler.HealthHandler, resourceHandler *handler.ResourceHandler, rackTemplateHandler *handler.RackTemplateHandler, deviceHandler *handler.DeviceHandler, pduHandler *handler.PDUHandler, adminHandler *handler.AdminHandler, jwtSecret string, currentAccess ...gin.HandlerFunc) *gin.Engine {
@@ -14,13 +15,13 @@ func New(authHandler *handler.AuthHandler, healthHandler *handler.HealthHandler,
 	// 默认不信任任何反向代理，避免客户端伪造 X-Forwarded-For。
 	// 部署在受控代理后时，再按实际代理网段配置 SetTrustedProxies。
 	_ = r.SetTrustedProxies(nil)
-	r.Use(gin.Recovery(), middleware.RequestID(), middleware.RequestLog())
+	r.Use(gin.Recovery(), middleware.RequestID(), middleware.RequestLog(), appserver.RequestBounds(128))
 	r.GET("/health/live", healthHandler.Live)
 	r.GET("/health/ready", healthHandler.Ready)
 	v1 := r.Group("/api/v1")
 	v1.POST("/auth/login", authHandler.Login)
 	protected := v1.Group("")
-	protected.Use(middleware.Auth(jwtSecret))
+	protected.Use(authHandler.AuthMiddleware())
 	if len(currentAccess) > 0 {
 		protected.Use(currentAccess...)
 	}

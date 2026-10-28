@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"omnirack-replica/backend/internal/model"
 	"omnirack-replica/backend/internal/repository"
-	"github.com/google/uuid"
 )
 
 type rackDiagramImportFakeStore struct {
@@ -46,6 +46,9 @@ func newRackDiagramImportFakeStore(withDevice bool) *rackDiagramImportFakeStore 
 
 func (f *rackDiagramImportFakeStore) WithinDeviceTransaction(_ context.Context, fn func(repository.DeviceStore) error) error {
 	return fn(f)
+}
+func (f *rackDiagramImportFakeStore) CountActivePowerConnections(context.Context, uuid.UUID) (int64, error) {
+	return 0, nil
 }
 func (f *rackDiagramImportFakeStore) GetRoom(context.Context, uuid.UUID) (model.Room, error) {
 	return f.room, nil

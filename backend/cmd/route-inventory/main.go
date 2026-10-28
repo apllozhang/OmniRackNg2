@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"os"
 	"sort"
 
@@ -13,6 +14,8 @@ import (
 )
 
 func main() {
+	sourceContract := flag.Bool("source-contract", false, "include handler/source and JSON binding metadata (run from backend)")
+	flag.Parse()
 	gin.SetMode(gin.ReleaseMode)
 	assets := &handler.AssetOperationsHandler{}
 	r := router.New(&handler.AuthHandler{}, &handler.HealthHandler{},
@@ -22,12 +25,17 @@ func main() {
 	router.RegisterAssetOperations(r, assets, "inventory-only")
 	router.RegisterNotifications(r, &handler.NotificationHandler{}, assets, "inventory-only")
 	type route struct {
-		Method string `json:"method"`
-		Path   string `json:"path"`
+		Method  string `json:"method"`
+		Path    string `json:"path"`
+		Handler string `json:"handler,omitempty"`
 	}
 	routes := make([]route, 0, len(r.Routes()))
 	for _, item := range r.Routes() {
-		routes = append(routes, route{item.Method, item.Path})
+		entry := route{Method: item.Method, Path: item.Path}
+		if *sourceContract {
+			entry.Handler = item.Handler
+		}
+		routes = append(routes, entry)
 	}
 	sort.Slice(routes, func(i, j int) bool {
 		if routes[i].Path == routes[j].Path {
@@ -37,7 +45,16 @@ func main() {
 	})
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(routes); err != nil {
+	var output interface{} = routes
+	if *sourceContract {
+		metadata, err := readSourceContract("internal")
+		if err != nil {
+			panic(err)
+		}
+		metadata["routes"] = routes
+		output = metadata
+	}
+	if err := encoder.Encode(output); err != nil {
 		panic(err)
 	}
 }

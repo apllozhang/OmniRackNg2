@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"omnirack-replica/backend/internal/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"omnirack-replica/backend/internal/model"
 	"strings"
 	"time"
 )
@@ -338,6 +338,9 @@ func ValidateSpareMove(x model.SpareStock, in SpareMoveInput) error {
 	if in.SubmissionID == uuid.Nil || in.Quantity < 1 || in.Quantity > 1000000 || strings.TrimSpace(in.Reason) == "" {
 		return opsInvalid("提交标识、正整数数量及操作依据必填")
 	}
+	if len(in.Reason) > 2000 || len(in.DisposalEvidence) > 2000 {
+		return opsInvalid("操作依据或数据处置依据过长")
+	}
 	if in.Version != x.Version {
 		return ErrResourceVersion
 	}
@@ -395,6 +398,30 @@ func ValidateSpareMove(x model.SpareStock, in SpareMoveInput) error {
 	return nil
 }
 
+func spareMoveReason(in SpareMoveInput) string {
+	if in.Operation == "RETIRE" {
+		return strings.TrimSpace(in.Reason + "\n处置依据：" + in.DisposalEvidence)
+	}
+	return strings.TrimSpace(in.Reason)
+}
+
+// A retry must identify the same business command, not merely the same actor and
+// stock row. Version is deliberately excluded: the first execution increments it.
+// REMOVE and RECEIVE derive their device/destination from locked stock, so their
+// callers may omit those fields when replaying the original request.
+func sameSpareMove(prior model.SpareMovement, in SpareMoveInput) bool {
+	if prior.Operation != in.Operation || prior.Quantity != in.Quantity || prior.Reason != spareMoveReason(in) {
+		return false
+	}
+	if !(in.Operation == "REMOVE" && in.DeviceID == nil) && !sameOptionalID(prior.DeviceID, in.DeviceID) {
+		return false
+	}
+	if !(in.Operation == "RECEIVE" && in.DestinationSiteID == nil) && !sameOptionalID(prior.DestinationSiteID, in.DestinationSiteID) {
+		return false
+	}
+	return in.receiptState == "" || prior.AfterState == in.receiptState
+}
+
 func (s *AssetOperations) MoveStock(ctx context.Context, actor Actor, id uuid.UUID, in SpareMoveInput) (model.SpareMovement, error) {
 	var output model.SpareMovement
 	if actor.UserID == nil || in.SubmissionID == uuid.Nil {
@@ -407,7 +434,7 @@ func (s *AssetOperations) MoveStock(ctx context.Context, actor Actor, id uuid.UU
 		var prior model.SpareMovement
 		e := tx.Where("submission_id = ?", in.SubmissionID).First(&prior).Error
 		if e == nil {
-			if prior.StockID != id || prior.ActorID != *actor.UserID {
+			if prior.StockID != id || prior.ActorID != *actor.UserID || !sameSpareMove(prior, in) {
 				return opsInvalid("提交标识冲突")
 			}
 			output = prior
@@ -529,7 +556,6 @@ func (s *AssetOperations) MoveStock(ctx context.Context, actor Actor, id uuid.UU
 		case "RETIRE":
 			x.State = "RETIRED"
 			x.Quantity = 0
-			in.Reason += "\n处置依据：" + in.DisposalEvidence
 		}
 		if x.Quantity < 0 {
 			return opsInvalid("库存不能为负数")
@@ -547,7 +573,7 @@ func (s *AssetOperations) MoveStock(ctx context.Context, actor Actor, id uuid.UU
 			}
 		}
 		output = model.SpareMovement{SubmissionID: in.SubmissionID, StockID: x.ID, DestinationStockID: destinationStock, Operation: in.Operation, Quantity: in.Quantity,
-			BeforeQuantity: before.Quantity, AfterQuantity: x.Quantity, BeforeState: before.State, AfterState: x.State, DeviceID: in.DeviceID, SourceSiteID: sourceSite, DestinationSiteID: in.DestinationSiteID, ActorID: *actor.UserID, Reason: strings.TrimSpace(in.Reason)}
+			BeforeQuantity: before.Quantity, AfterQuantity: x.Quantity, BeforeState: before.State, AfterState: x.State, DeviceID: in.DeviceID, SourceSiteID: sourceSite, DestinationSiteID: in.DestinationSiteID, ActorID: *actor.UserID, Reason: spareMoveReason(in)}
 		if e := tx.Create(&output).Error; e != nil {
 			return e
 		}

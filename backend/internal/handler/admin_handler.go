@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"omnirack-replica/backend/internal/model"
 	"omnirack-replica/backend/internal/repository"
 	"omnirack-replica/backend/internal/response"
 	"omnirack-replica/backend/internal/service"
-	"github.com/gin-gonic/gin"
 )
 
 type AdminHandler struct {
@@ -191,6 +191,7 @@ func (h *AdminHandler) decide(c *gin.Context, approve bool) {
 }
 
 type ldapRequest struct {
+	Version              *uint                        `json:"version"`
 	Enabled              bool                         `json:"enabled"`
 	URL                  string                       `json:"url"`
 	UseTLS               bool                         `json:"useTls"`
@@ -255,6 +256,9 @@ func (h *AdminHandler) UpdateLDAP(c *gin.Context) {
 		adminError(c, err)
 		return
 	}
+	if req.Version != nil {
+		item.Version = *req.Version
+	}
 	req.apply(&item)
 	if err := h.users.SaveLDAPConfig(c.Request.Context(), &item); err != nil {
 		adminError(c, err)
@@ -295,6 +299,8 @@ func adminError(c *gin.Context, err error) {
 		response.Error(c, http.StatusBadRequest, "ROLE_NOT_FOUND", "选择的角色不存在", nil)
 	case errors.Is(err, service.ErrInvalidLDAPConfig):
 		response.Error(c, http.StatusBadRequest, "INVALID_LDAP_CONFIG", err.Error(), nil)
+	case errors.Is(err, service.ErrLDAPConfigVersion):
+		response.Error(c, http.StatusConflict, "LDAP_VERSION_CONFLICT", "LDAP 配置已被其他管理员修改，请刷新后重试", nil)
 	case errors.Is(err, service.ErrLDAPCredentials):
 		response.Error(c, http.StatusBadRequest, "LDAP_AUTH_FAILED", "LDAP 服务账号或用户认证失败", nil)
 	case errors.Is(err, service.ErrLDAPUnavailable):

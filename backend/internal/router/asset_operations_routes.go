@@ -1,13 +1,17 @@
 package router
 
 import (
+	"github.com/gin-gonic/gin"
 	"omnirack-replica/backend/internal/handler"
 	"omnirack-replica/backend/internal/middleware"
-	"github.com/gin-gonic/gin"
 )
 
-func RegisterAssetOperations(r *gin.Engine, h *handler.AssetOperationsHandler, secret string) {
-	g := r.Group("/api/v1/asset-ops", middleware.Auth(secret), h.CurrentAccess())
+func RegisterAssetOperations(r *gin.Engine, h *handler.AssetOperationsHandler, secret string, auth ...gin.HandlerFunc) {
+	guard := middleware.Auth(secret, nil)
+	if len(auth) > 0 {
+		guard = auth[0]
+	}
+	g := r.Group("/api/v1/asset-ops", guard, h.CurrentAccess())
 	g.GET("/access/settings", h.ScanAccess)
 	g.PUT("/access/settings", middleware.RequireAdmin(), h.SaveScanAccess)
 	g.GET("/sites", h.Sites)
@@ -53,8 +57,12 @@ func RegisterAssetOperations(r *gin.Engine, h *handler.AssetOperationsHandler, s
 	g.POST("/export", h.Export)
 }
 
-func RegisterNotifications(r *gin.Engine, h *handler.NotificationHandler, access *handler.AssetOperationsHandler, secret string) {
-	g := r.Group("/api/v1/asset-ops/notifications", middleware.Auth(secret), access.CurrentAccess(), middleware.RequireAdmin())
+func RegisterNotifications(r *gin.Engine, h *handler.NotificationHandler, access *handler.AssetOperationsHandler, secret string, auth ...gin.HandlerFunc) {
+	guard := middleware.Auth(secret, nil)
+	if len(auth) > 0 {
+		guard = auth[0]
+	}
+	g := r.Group("/api/v1/asset-ops/notifications", guard, access.CurrentAccess(), middleware.RequireAdmin())
 	g.GET("/settings", h.Settings)
 	g.PUT("/settings", h.Save)
 	g.GET("/approval-settings", h.ApprovalSettings)

@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"omnirack-replica/backend/internal/model"
-	"omnirack-replica/backend/internal/repository"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"omnirack-replica/backend/internal/model"
+	"omnirack-replica/backend/internal/repository"
 )
 
 type decommissionStore struct {
@@ -41,6 +41,9 @@ func (f *decommissionStore) GetOperationPolicy(context.Context) (model.Operation
 }
 func (f *decommissionStore) GetDeviceForUpdate(context.Context, uuid.UUID) (model.Device, error) {
 	return f.device, nil
+}
+func (f *decommissionStore) CountActivePowerConnections(context.Context, uuid.UUID) (int64, error) {
+	return 0, nil
 }
 func (f *decommissionStore) GetPositionByDevice(context.Context, uuid.UUID) (model.RackDevicePosition, error) {
 	if f.position.ID == uuid.Nil {

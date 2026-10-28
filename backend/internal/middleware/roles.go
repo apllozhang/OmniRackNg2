@@ -3,11 +3,12 @@ package middleware
 import (
 	"strings"
 
-	"omnirack-replica/backend/internal/response"
 	"github.com/gin-gonic/gin"
+	"omnirack-replica/backend/internal/response"
 )
 
-// RequireRole protects routes using the role codes embedded in the signed JWT.
+// RequireRole protects routes using the roles set by authenticated identity
+// resolution. Production routes resolve these from the current database state.
 // Role checks are deliberately enforced on the API, not only in the frontend.
 func RequireRole(role string) gin.HandlerFunc {
 	return func(c *gin.Context) {

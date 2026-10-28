@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
-	"omnirack-replica/backend/internal/model"
-	"omnirack-replica/backend/internal/repository"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"omnirack-replica/backend/internal/model"
+	"omnirack-replica/backend/internal/repository"
 )
 
 var (
@@ -19,6 +20,7 @@ var (
 	ErrInvalidUser       = errors.New("invalid user")
 	ErrRoleNotFound      = errors.New("role not found")
 	ErrInvalidLDAPConfig = errors.New("invalid ldap config")
+	ErrLDAPConfigVersion = repository.ErrLDAPConfigVersion
 )
 
 type UserWriteInput struct {
@@ -61,14 +63,16 @@ func normalizeUserInput(input UserWriteInput, creating bool) (UserWriteInput, er
 	if creating && input.Username == "" {
 		return input, fmt.Errorf("%w: 用户名不能为空", ErrInvalidUser)
 	}
+	if utf8.RuneCountInString(input.Username) > 100 || utf8.RuneCountInString(input.DisplayName) > 100 || utf8.RuneCountInString(input.Email) > 255 {
+		return input, fmt.Errorf("%w: 用户名/显示名不能超过 100 字符，邮箱不能超过 255 字符", ErrInvalidUser)
+	}
 	if input.DisplayName == "" {
 		input.DisplayName = input.Username
 	}
-	if creating && input.AuthSource == "local" && len(input.Password) < 8 {
-		return input, fmt.Errorf("%w: 本地用户密码至少 8 位", ErrInvalidUser)
-	}
-	if input.Password != "" && len(input.Password) < 8 {
-		return input, fmt.Errorf("%w: 密码至少 8 位", ErrInvalidUser)
+	if input.Password != "" || creating && input.AuthSource == "local" {
+		if err := model.ValidatePassword(input.Password); err != nil {
+			return input, fmt.Errorf("%w: %v", ErrInvalidUser, err)
+		}
 	}
 	if len(input.RoleCodes) == 0 {
 		input.RoleCodes = []string{"user"}
@@ -183,6 +187,9 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, expectedVersion 
 		}
 	}
 	if err := s.store.UpdateUser(ctx, &current, expectedVersion, input.RoleCodes); err != nil {
+		if errors.Is(err, repository.ErrLastEnabledAdmin) {
+			return model.User{}, ErrLastAdmin
+		}
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return model.User{}, ErrUserConflict
 		}
@@ -195,6 +202,9 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, expectedVersion 
 }
 
 func (s *UserService) ResetPassword(ctx context.Context, id uuid.UUID, expectedVersion uint, password string) (model.User, error) {
+	if err := model.ValidatePassword(password); err != nil {
+		return model.User{}, fmt.Errorf("%w: %v", ErrInvalidUser, err)
+	}
 	current, err := s.Get(ctx, id)
 	if err != nil {
 		return model.User{}, err
@@ -229,6 +239,9 @@ func (s *UserService) Delete(ctx context.Context, id uuid.UUID, expectedVersion 
 		}
 	}
 	if err := s.store.DeleteUser(ctx, id, expectedVersion); err != nil {
+		if errors.Is(err, repository.ErrLastEnabledAdmin) {
+			return ErrLastAdmin
+		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrUserNotFound
 		}

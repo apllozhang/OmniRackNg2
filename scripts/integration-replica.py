@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Real HTTP/PostgreSQL regression in an owned, disposable loopback-only cluster.
 
-Supply PostgreSQL 16 bin directory (with btree_gist) and a host-native backend
-binary. Does not accept a remote URL, existing database or production credentials.
+Supply PostgreSQL 16 binaries or an isolated Docker image, plus a host-native
+backend binary. Never accepts a remote URL, existing DB or production credentials.
+Docker mode is supported on Linux (including NAS 103); browser Docker mode uses
+host networking only to reach the owned loopback test services.
 """
 import argparse
 import json
@@ -26,11 +28,21 @@ def free_port():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--pg-bin", type=Path, required=True)
+    postgres = parser.add_mutually_exclusive_group(required=True)
+    postgres.add_argument("--pg-bin", type=Path, help="PostgreSQL 16 binaries including btree_gist")
+    postgres.add_argument("--pg-image", help="Docker PostgreSQL 16 image, e.g. postgres:16-alpine")
+    parser.add_argument("--go-invariants", action="store_true", help="run opt-in real PostgreSQL concurrency/migration tests first")
+    parser.add_argument("--go-bin", default=os.environ.get("GO_BIN", "go"), help="Go executable for --go-invariants")
+    parser.add_argument("--browser-image", help="Linux Playwright Docker image matching installed @playwright/test")
     parser.add_argument("--server", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--browser", action="store_true", help="also run real-API Playwright page tests")
     args = parser.parse_args()
+    if (args.pg_image or args.browser_image) and os.uname().sysname != "Linux":
+        parser.error("Docker test mode requires Linux host networking; use --pg-bin on other hosts")
+    if args.browser_image:
+        args.browser = True
+    root = Path(__file__).resolve().parents[1]
     args.output = args.output.resolve()
     args.output.mkdir(parents=True, exist_ok=False)
     password = secrets.token_hex(24)
@@ -38,6 +50,8 @@ def main():
     # Avoid proxy settings accidentally sending loopback test traffic elsewhere.
     client = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     pgport, port = free_port(), free_port()
+    while port == pgport:
+        port = free_port()
     base = f"http://127.0.0.1:{port}"
 
     def request(method, path, data=None, token=None, expected=200):
@@ -60,22 +74,63 @@ def main():
     with tempfile.TemporaryDirectory(prefix="replica-pg-") as directory:
         temporary = Path(directory)
         data = temporary / "data"
-        pgctl = str(args.pg_bin.resolve() / "pg_ctl")
+        pgctl = str(args.pg_bin.resolve() / "pg_ctl") if args.pg_bin else None
         log = (args.output / "process.log").open("wb")
         server = None
         frontend = None
         started = False
+        container_id = None
         try:
-            subprocess.run([str(args.pg_bin.resolve() / "initdb"), "-D", str(data),
-                            "-U", "replica_test", "-A", "trust", "--no-locale", "-E", "UTF8"],
-                           check=True, stdout=log, stderr=log)
-            subprocess.run([pgctl, "-D", str(data), "-l", str(temporary / "postgres.log"),
-                            "-o", f"-h 127.0.0.1 -p {pgport} -k {temporary}", "-w", "start"],
-                           check=True, stdout=log, stderr=log)
-            started = True
+            if args.pg_image:
+                # A unique name, returned immutable ID and owned tmpfs prevent touching
+                # existing containers, volumes, databases or production credentials.
+                run = subprocess.run([
+                    "docker", "run", "--detach", "--rm", "--name", "omnirack-qa-" + uuid.uuid4().hex[:16],
+                    "--label", "omnirack.disposable-test=true", "--tmpfs", "/var/lib/postgresql/data:rw,size=512m",
+                    "--publish", f"127.0.0.1:{pgport}:5432", "--env", "POSTGRES_USER=replica_test",
+                    "--env", "POSTGRES_DB=omnirack_integration", "--env", "POSTGRES_HOST_AUTH_METHOD=trust",
+                    args.pg_image], check=True, stdout=subprocess.PIPE, stderr=log, text=True)
+                container_id = run.stdout.strip()
+                if len(container_id) != 64 or any(c not in "0123456789abcdef" for c in container_id):
+                    raise RuntimeError("Docker did not return a valid owned container ID")
+                started = True
+                for _ in range(150):
+                    ready = subprocess.run(["docker", "exec", container_id, "pg_isready", "-h", "127.0.0.1", "-U", "replica_test",
+                                            "-d", "omnirack_integration"], stdout=log, stderr=log)
+                    if ready.returncode == 0:
+                        break
+                    time.sleep(.2)
+                else:
+                    raise RuntimeError("owned PostgreSQL container did not become ready")
+                psql = ["docker", "exec", "-i", container_id, "psql", "-U", "replica_test", "-d", "omnirack_integration"]
+            else:
+                subprocess.run([str(args.pg_bin.resolve() / "initdb"), "-D", str(data),
+                                "-U", "replica_test", "-A", "trust", "--no-locale", "-E", "UTF8"],
+                               check=True, stdout=log, stderr=log)
+                # Embedded PostgreSQL distributions may omit psql/createdb.
+                # Bootstrap only this newly initialized, offline directory using
+                # PostgreSQL's single-user mode, then start its loopback server.
+                postgres_binary = str(args.pg_bin.resolve() / "postgres")
+                for database, statement in [("postgres", "CREATE DATABASE omnirack_integration;\n"),
+                                            ("omnirack_integration", "CREATE EXTENSION btree_gist WITH SCHEMA public;\n")]:
+                    subprocess.run([postgres_binary, "--single", "-D", str(data), "-c", "exit_on_error=on", database],
+                                   input=statement.encode(), check=True, stdout=log, stderr=log)
+                subprocess.run([pgctl, "-D", str(data), "-l", str(temporary / "postgres.log"),
+                                "-o", f"-h 127.0.0.1 -p {pgport} -k {temporary}", "-w", "start"],
+                               check=True, stdout=log, stderr=log)
+                started = True
+            if args.pg_image:
+                subprocess.run(psql + ["-v", "ON_ERROR_STOP=1", "-c", "CREATE EXTENSION btree_gist WITH SCHEMA public"],
+                               check=True, stdout=log, stderr=log)
+            dsn = f"postgres://replica_test@127.0.0.1:{pgport}/omnirack_integration?sslmode=disable"
+            if args.go_invariants:
+                invariant_env = dict(os.environ, OMNIRACK_INTEGRATION_DATABASE_URL=dsn,
+                                     OMNIRACK_INTEGRATION_SCHEMA_PREFIX="omnirack_it_")
+                with (args.output / "postgres-invariants.log").open("wb") as invariant_log:
+                    subprocess.run([args.go_bin, "test", "-v", "-count=1", "./integration"], cwd=root / "backend",
+                                   env=invariant_env, stdout=invariant_log, stderr=invariant_log, check=True, timeout=300)
             env = dict(os.environ, APP_ENV="production", HTTP_ADDR=f"127.0.0.1:{port}",
-                       DATABASE_URL=f"host=127.0.0.1 port={pgport} user=replica_test dbname=postgres sslmode=disable",
-                       JWT_SECRET=secrets.token_hex(32), ADMIN_USERNAME="admin", ADMIN_PASSWORD=password)
+                       DATABASE_URL=dsn, JWT_SECRET=secrets.token_hex(32), ADMIN_USERNAME="admin", ADMIN_PASSWORD=password)
             server = subprocess.Popen([str(args.server.resolve())], env=env, stdout=log, stderr=log)
             for _ in range(100):
                 if server.poll() is not None:
@@ -148,11 +203,22 @@ def main():
             api("POST", "/data-centers", {"name": "禁止", "autoGenerateCode": True}, 403, audit_token)
             api("GET", "/admin/users", expected=403, auth=audit_token)
             api("POST", "/asset-ops/export", {}, auth=audit_token)
+            # Password resets and logout revoke already-issued sessions immediately.
+            replacement_password = secrets.token_hex(24)
+            auditor = api("POST", f"/admin/users/{auditor['id']}/reset-password?version={auditor['version']}",
+                          {"password": replacement_password})
+            api("GET", "/auth/me", expected=401, auth=audit_token)
+            request("POST", "/api/v1/auth/login", {"username": "auditor", "password": password}, expected=401)
+            audit_login = request("POST", "/api/v1/auth/login", {"username": "auditor", "password": replacement_password})
+            audit_token = audit_login["token"]
+            api("POST", "/auth/logout", {}, auth=audit_token)
+            api("GET", "/auth/me", expected=401, auth=audit_token)
+            audit_login = request("POST", "/api/v1/auth/login", {"username": "auditor", "password": replacement_password})
+            audit_token, auditor = audit_login["token"], audit_login["user"]
             # Existing JWT must cease to grant access after disablement.
             api("PUT", f"/admin/users/{auditor['id']}?version={auditor['version']}", {"username": "auditor", "displayName": "已停用", "enabled": False, "roleCodes": ["asset_auditor"]})
             api("GET", "/asset-ops/sites", expected=401, auth=audit_token)
             if args.browser:
-                root = Path(__file__).resolve().parents[1]
                 front_port = free_port()
                 front_url = f"http://127.0.0.1:{front_port}"
                 browser_env = dict(os.environ, E2E_LIVE="true", E2E_USERNAME="admin", E2E_PASSWORD=password,
@@ -169,14 +235,29 @@ def main():
                 else:
                     raise RuntimeError("frontend did not become ready")
                 with (args.output / "playwright.log").open("wb") as browser_log:
-                    subprocess.run(["node", "node_modules/@playwright/test/cli.js", "test",
-                                    "--project=live-smoke", "--workers=1"], cwd=root / "frontend",
-                                   env=browser_env, stdout=browser_log, stderr=browser_log, check=True)
+                    command = ["node", "node_modules/@playwright/test/cli.js", "test", "--project=live-smoke", "--workers=1"]
+                    if args.browser_image:
+                        docker = ["docker", "run", "--rm", "--network", "host", "--shm-size=256m",
+                                  "--user", f"{os.getuid()}:{os.getgid()}", "--env", "HOME=/tmp", "--volume", f"{root}:/work",
+                                  "--workdir", "/work/frontend"]
+                        for key in ["E2E_LIVE", "E2E_USERNAME", "E2E_PASSWORD", "PLAYWRIGHT_BASE_URL", "API_PROXY_TARGET"]:
+                            docker.extend(["--env", key])
+                        command = docker + [args.browser_image] + command
+                    subprocess.run(command, cwd=root / "frontend", env=browser_env,
+                                   stdout=browser_log, stderr=browser_log, check=True, timeout=600)
             report = {"passed": True, "checks": checks, "request_count": len(checks),
-                      "scope": "Fresh local PostgreSQL 16 + newly built native backend; no NAS access",
+                      "scope": "Owned disposable loopback PostgreSQL 16 + newly built native backend; no existing instances or data",
+                      "postgres_mode": "docker-tmpfs" if args.pg_image else "temporary-native-cluster",
+                      "postgres_invariants": args.go_invariants,
+                      "browser_mode": "docker" if args.browser_image else ("host" if args.browser else "not-run"),
                       "limitations": ["Not exhaustive: real SMTP, LDAP and camera hardware are not exercised."]}
             (args.output / "result.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
             print(f"PASS: {len(checks)} real HTTP checks; {args.output}")
+        except Exception as error:
+            failure = {"passed": False, "checks": checks, "request_count": len(checks),
+                       "error_type": type(error).__name__, "error": str(error)[:2000]}
+            (args.output / "result.json").write_text(json.dumps(failure, ensure_ascii=False, indent=2) + "\n")
+            raise
         finally:
             if frontend is not None:
                 frontend.terminate()
@@ -193,7 +274,12 @@ def main():
                     server.kill()
                     server.wait()
             if started:
-                subprocess.run([pgctl, "-D", str(data), "-m", "fast", "-w", "stop"], stdout=log, stderr=log, check=True)
+                if container_id:
+                    # No name/prefix search, compose down, volume removal or global prune.
+                    subprocess.run(["docker", "logs", container_id], stdout=log, stderr=log)
+                    subprocess.run(["docker", "rm", "--force", container_id], stdout=log, stderr=log)
+                elif pgctl:
+                    subprocess.run([pgctl, "-D", str(data), "-m", "fast", "-w", "stop"], stdout=log, stderr=log)
             log.close()
 
 

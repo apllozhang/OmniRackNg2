@@ -6,6 +6,8 @@ from pathlib import Path, PurePosixPath
 import zipfile
 
 ORIGINAL_SHA256 = "31e73a24ae54775be155ec4fe0ed57392d014b401ac39c6400ba5a4ef0260db7"
+# Executable diagnostics are preserved as inert historical source, not silently dropped.
+RELOCATED = {"backend/diag.go": "docs/legacy/diag.go.txt"}
 EXCLUDED_DIRS = {".git", ".tools", ".auth", "__pycache__", "node_modules", "dist",
                  "bin", ".vite", "coverage", "test-results", "playwright-report",
                  "blob-report", "artifacts", "backups"}
@@ -50,7 +52,7 @@ def compare_original(root, original):
     if digest != ORIGINAL_SHA256:
         raise ValueError(f"original ZIP hash mismatch: {digest}")
     current = inventory(root)["files"]
-    missing, changed, identical, omitted = [], [], [], []
+    missing, changed, identical, omitted, relocated = [], [], [], [], []
     with zipfile.ZipFile(original) as archive:
         for entry in archive.infolist():
             if entry.is_dir():
@@ -59,13 +61,17 @@ def compare_original(root, original):
             if excluded(relative):
                 omitted.append(relative)
             elif relative not in current:
-                missing.append(relative)
+                target = RELOCATED.get(relative)
+                if target in current and current[target] == sha256(archive.read(entry)):
+                    relocated.append({"original": relative, "current": target, "reason": "Preserved as inert diagnostic source; excluded from executable builds."})
+                else:
+                    missing.append(relative)
             elif current[relative] == sha256(archive.read(entry)):
                 identical.append(relative)
             else:
                 changed.append(relative)
     return {"original_sha256": digest, "missing": sorted(missing), "changed": sorted(changed),
-            "identical": sorted(identical), "excluded": sorted(omitted),
+            "identical": sorted(identical), "excluded": sorted(omitted), "relocated": relocated,
             "limitation": "File presence is not functional or semantic equivalence."}
 
 

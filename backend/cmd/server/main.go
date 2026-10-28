@@ -5,14 +5,19 @@ import (
 	"encoding/json"
 	"flag"
 	"log"
+	"net"
 	"os"
+	"os/signal"
 	"runtime"
+	"sync"
+	"syscall"
 	"time"
 
 	"omnirack-replica/backend/internal/config"
 	"omnirack-replica/backend/internal/handler"
 	"omnirack-replica/backend/internal/repository"
 	"omnirack-replica/backend/internal/router"
+	appserver "omnirack-replica/backend/internal/server"
 	"omnirack-replica/backend/internal/service"
 )
 
@@ -31,6 +36,8 @@ func main() {
 		}
 		return
 	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("load config: %v", err)
@@ -39,20 +46,30 @@ func main() {
 	if err != nil {
 		log.Fatalf("connect database: %v", err)
 	}
-	if err := repository.Migrate(db); err != nil {
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatal("database pool unavailable")
+	}
+	sqlDB.SetMaxOpenConns(20)
+	sqlDB.SetMaxIdleConns(5)
+	sqlDB.SetConnMaxLifetime(30 * time.Minute)
+	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
+	defer sqlDB.Close()
+	startupCtx, cancelStartup := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancelStartup()
+	if err := repository.Migrate(db.WithContext(startupCtx)); err != nil {
 		log.Fatalf("migrate database: %v", err)
 	}
-	ctx := context.Background()
-	if err := repository.SeedRoles(ctx, db); err != nil {
+	if err := repository.SeedRoles(startupCtx, db); err != nil {
 		log.Fatalf("seed roles: %v", err)
 	}
-	if err := repository.SeedAdmin(ctx, db, cfg.AdminUser, cfg.AdminPass); err != nil {
+	if err := repository.SeedAdmin(startupCtx, db, cfg.AdminUser, cfg.AdminPass); err != nil {
 		log.Fatalf("seed admin: %v", err)
 	}
-	if err := repository.SeedRackTemplates(ctx, db); err != nil {
+	if err := repository.SeedRackTemplates(startupCtx, db); err != nil {
 		log.Fatalf("seed rack templates: %v", err)
 	}
-	if err := repository.SeedDeviceCatalog(ctx, db); err != nil {
+	if err := repository.SeedDeviceCatalog(startupCtx, db); err != nil {
 		log.Fatalf("seed device catalog: %v", err)
 	}
 
@@ -79,33 +96,43 @@ func main() {
 	assetOps := service.NewAssetOperations(db)
 	assetHandler := handler.NewAssetOperationsHandler(assetOps)
 	engine := router.New(authHandler, healthHandler, resourceHandler, templateHandler, deviceHandler, pduHandler, adminHandler, cfg.JWTSecret, assetHandler.LegacyAccess())
-	router.RegisterAssetOperations(engine, assetHandler, cfg.JWTSecret)
+	router.RegisterAssetOperations(engine, assetHandler, cfg.JWTSecret, authHandler.AuthMiddleware())
 	notifications := service.NewNotificationService(db, cfg.JWTSecret)
-	router.RegisterNotifications(engine, handler.NewNotificationHandler(notifications), assetHandler, cfg.JWTSecret)
-	go func() {
-		for {
-			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
-			if err := notifications.DispatchApprovals(ctx); err != nil {
-				log.Printf("approval notification dispatch failed")
-			}
-			cancel()
-			time.Sleep(time.Minute)
+	router.RegisterNotifications(engine, handler.NewNotificationHandler(notifications), assetHandler, cfg.JWTSecret, authHandler.AuthMiddleware())
+	listener, err := net.Listen("tcp", cfg.HTTPAddr)
+	if err != nil {
+		log.Fatalf("listen: %v", err)
+	}
+	var workers sync.WaitGroup
+	appserver.Periodic(ctx, &workers, time.Minute, 50*time.Second, func(ctx context.Context) {
+		if err := notifications.DispatchApprovals(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("approval notification dispatch failed")
 		}
-	}()
-	go func() {
-		for {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			if err := assetOps.RefreshReminders(ctx); err != nil {
-				log.Printf("asset reminder refresh failed: %v", err)
-			} else if err := notifications.Dispatch(ctx); err != nil {
+	})
+	appserver.Periodic(ctx, &workers, 15*time.Minute, 5*time.Minute, func(ctx context.Context) {
+		if err := assetOps.RefreshReminders(ctx); err != nil {
+			if ctx.Err() == nil {
+				log.Printf("asset reminder refresh failed")
+			}
+		} else if err := notifications.Dispatch(ctx); err != nil {
+			if ctx.Err() == nil {
 				log.Printf("asset notification dispatch failed")
 			}
-			cancel()
-			time.Sleep(15 * time.Minute)
 		}
-	}()
+	})
 	log.Printf("omnirack-replica listening on %s", cfg.HTTPAddr)
-	if err := engine.Run(cfg.HTTPAddr); err != nil {
-		log.Fatal(err)
+	serveErr := appserver.Serve(ctx, appserver.New(cfg.HTTPAddr, engine), listener)
+	stop()
+	workerDone := make(chan struct{})
+	go func() { workers.Wait(); close(workerDone) }()
+	select {
+	case <-workerDone:
+	case <-time.After(10 * time.Second):
+		log.Printf("background shutdown deadline reached")
+	}
+	if serveErr != nil {
+		_ = sqlDB.Close()
+		log.Printf("HTTP server stopped: %v", serveErr)
+		os.Exit(1)
 	}
 }

@@ -28,7 +28,7 @@ import { useAuthStore } from '@/stores/auth'
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
-const errorMessage = ref('')
+const errorMessage = ref(route.query.reason === 'service-unavailable' ? '认证服务暂时不可用，请稍后重试。当前登录凭证已保留。' : '')
 const form = reactive({ username: 'admin', password: '' })
 
 async function submit() {

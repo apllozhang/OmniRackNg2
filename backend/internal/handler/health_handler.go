@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"context"
 	"net/http"
+	"time"
 
-	"omnirack-replica/backend/internal/response"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"omnirack-replica/backend/internal/response"
 )
 
 type HealthHandler struct{ db *gorm.DB }
@@ -17,8 +19,10 @@ func (h *HealthHandler) Live(c *gin.Context) {
 }
 
 func (h *HealthHandler) Ready(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+	defer cancel()
 	sqlDB, err := h.db.DB()
-	if err != nil || sqlDB.PingContext(c.Request.Context()) != nil {
+	if err != nil || sqlDB.PingContext(ctx) != nil {
 		response.Error(c, http.StatusServiceUnavailable, "NOT_READY", "数据库尚未就绪", nil)
 		return
 	}

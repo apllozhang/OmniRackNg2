@@ -66,11 +66,17 @@ router.beforeEach(async (to) => {
   }
   const auth = useAuthStore()
   if (to.meta.public) {
-    if (to.name === 'login' && auth.isAuthenticated) return { name: 'dashboard' }
+    if (to.name === 'login' && auth.isAuthenticated && auth.user) return { name: 'dashboard' }
     return true
   }
   if (!auth.isAuthenticated) return { name: 'login', query: { redirect: to.fullPath } }
-  if (!auth.user) await auth.loadUser()
+  if (!auth.user) {
+    try {
+      await auth.loadUser()
+    } catch {
+      return { name: 'login', query: { redirect: to.fullPath, reason: 'service-unavailable' } }
+    }
+  }
   if (!auth.isAuthenticated) return { name: 'login' }
   if (to.meta.requiresAdmin && !auth.isAdmin) return { name: 'dashboard' }
   if (to.meta.requiresAssets && !auth.user?.roles?.some(r => ['system_admin', 'asset_manager', 'asset_auditor'].includes(r.code))) return { name: 'dashboard' }

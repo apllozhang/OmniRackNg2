@@ -1,4 +1,4 @@
-ARG GO_IMAGE=golang:1.24.13-alpine
+ARG GO_IMAGE=golang:1.27.3-alpine
 FROM ${GO_IMAGE} AS build
 ARG GOPROXY=https://goproxy.cn,direct
 ENV GOPROXY=${GOPROXY}

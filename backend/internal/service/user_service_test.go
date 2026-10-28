@@ -2,13 +2,28 @@ package service
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 
-	"omnirack-replica/backend/internal/model"
-	"omnirack-replica/backend/internal/repository"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"omnirack-replica/backend/internal/model"
+	"omnirack-replica/backend/internal/repository"
 )
+
+func TestResetPasswordRejectsEmptyShortAndOverlongValues(t *testing.T) {
+	store := &userServiceStoreStub{user: model.User{AuthSource: "local", Enabled: true}}
+	for _, password := range []string{"", "short", strings.Repeat("x", 73)} {
+		_, err := NewUserService(store).ResetPassword(context.Background(), uuid.New(), 1, password)
+		if !errors.Is(err, ErrInvalidUser) {
+			t.Fatalf("password length %d: got %v", len(password), err)
+		}
+	}
+	if store.updateCalled {
+		t.Fatal("invalid reset wrote a user record")
+	}
+}
 
 type userServiceStoreStub struct {
 	repository.UserStore

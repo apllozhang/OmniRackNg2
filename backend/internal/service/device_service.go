@@ -6,15 +6,16 @@ import (
 	"fmt"
 	"strings"
 
-	"omnirack-replica/backend/internal/model"
-	"omnirack-replica/backend/internal/repository"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"omnirack-replica/backend/internal/model"
+	"omnirack-replica/backend/internal/repository"
 )
 
 const (
 	MaxDevices        = 3000
 	MaxDevicesPerRack = 20
+	MaxListPage       = 10000
 )
 
 var (
@@ -184,6 +185,9 @@ func (s *DeviceService) ListDevices(ctx context.Context, query repository.Device
 	}
 	if query.Page <= 0 {
 		query.Page = 1
+	}
+	if query.Page > MaxListPage {
+		return DeviceListResult{}, opsInvalid("page 不能超过 10000")
 	}
 	if query.PageSize <= 0 {
 		query.PageSize = 20

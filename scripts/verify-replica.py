@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build, test and retain REA Evidence for the original and replica offline.
 
-Never contacts the NAS. Requires installed frontend dependencies and rea-agents
+Uses owned isolated test resources when integration is requested. Requires installed frontend dependencies and rea-agents
 6.8.0. Outputs go under artifacts/ so they do not change the source identity.
 """
 import argparse
@@ -66,7 +66,11 @@ def main():
     parser.add_argument("--node", default="node")
     parser.add_argument("--rea", default="rea", help="CLI executable or rea.mjs path")
     parser.add_argument("--pg-bin", type=Path, help="run real local PostgreSQL + Playwright regressions")
+    parser.add_argument("--pg-image", help="owned disposable PostgreSQL Docker image (Linux)")
+    parser.add_argument("--browser-image", help="matching Playwright image for live UI regression")
     args = parser.parse_args()
+    if args.pg_bin and args.pg_image:
+        parser.error("choose --pg-bin or --pg-image")
     root = Path(__file__).resolve().parents[1]
     output = args.output.resolve()
     if not output.is_relative_to(root / "artifacts"):
@@ -96,14 +100,16 @@ def main():
     run(["npm", "test", "--", "--maxWorkers=2"], root / "frontend", output / "frontend-tests.log", env)
     run(["npm", "run", "build"], root / "frontend", output / "frontend-build.log", env)
     run([args.go, "run", "./cmd/route-inventory"], root / "backend", output / "api-routes.json", env)
-    if args.pg_bin:
+    if args.pg_bin or args.pg_image:
         run([args.go, "build", "-trimpath", "-buildvcs=false", "-ldflags",
              "-X main.sourceSHA256=" + source["source_sha256"], "-o", output / "omnirack-server-native", "./cmd/server"],
             root / "backend", output / "native-build.log", env)
         run([output / "omnirack-server-native", "--build-info"], root, output / "backend-build-info.json", env)
-        run([sys.executable, root / "scripts/integration-replica.py", "--pg-bin", args.pg_bin.resolve(),
-             "--server", output / "omnirack-server-native", "--output", output / "integration", "--browser"],
-            root, output / "integration.log", env)
+        pg_args = ["--pg-bin", args.pg_bin.resolve()] if args.pg_bin else ["--pg-image", args.pg_image]
+        browser_args = ["--browser-image", args.browser_image] if args.browser_image else ["--browser"]
+        run([sys.executable, root / "scripts/integration-replica.py", *pg_args,
+             "--server", output / "omnirack-server-native", "--output", output / "integration",
+             "--go-invariants", "--go-bin", args.go, *browser_args], root, output / "integration.log", env)
     build_env = dict(env, CGO_ENABLED="0", GOOS="linux", GOARCH="amd64")
     build = [args.go, "build", "-trimpath", "-buildvcs=false", "-ldflags",
              "-X main.sourceSHA256=" + source["source_sha256"]]

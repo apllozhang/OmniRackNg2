@@ -30,17 +30,21 @@ export const useAuthStore = defineStore('auth', {
       if (!this.token) return
       try {
         this.user = await currentUser()
-      } catch {
-        this.signOut()
+      } catch (error: any) {
+        if (error?.response?.status === 401) this.clearSession()
+        else throw error
       }
+    },
+    clearSession() {
+      this.token = ''
+      this.user = null
+      localStorage.removeItem(TOKEN_KEY)
     },
     async signOut() {
       try {
         if (this.token) await logout()
       } finally {
-        this.token = ''
-        this.user = null
-        localStorage.removeItem(TOKEN_KEY)
+        this.clearSession()
       }
     },
   },
