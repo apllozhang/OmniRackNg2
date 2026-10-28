@@ -22,6 +22,8 @@ import type {
 } from '@/types/rackDiagramImport'
 
 export interface DeviceQuery {
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
 	scope?: 'PC' | 'ROOM'
   page?: number
   pageSize?: number

@@ -11736,6 +11736,38 @@
           },
           {
             "in": "query",
+            "name": "sortBy",
+            "required": false,
+            "schema": {
+              "description": "与 sortOrder 同时提供；数据库分页前排序，同值按ID稳定排序，空值最后。省略两者恢复创建时间倒序。",
+              "enum": [
+                "assetNumber",
+                "code",
+                "createdAt",
+                "heightU",
+                "lifecycleStatus",
+                "location",
+                "managementIp",
+                "name",
+                "typeName"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortOrder",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "typeId",
             "required": false,
             "schema": {
@@ -11894,7 +11926,7 @@
         "x-contract-evidence": "Gin registry + Go AST + reviewed handler result types",
         "x-handler": "DeviceHandler.CreateDevice",
         "x-source": {
-          "line": 132,
+          "line": 134,
           "path": "backend/internal/handler/device_handler.go"
         }
       }
@@ -11998,7 +12030,7 @@
         "x-contract-evidence": "Gin registry + Go AST + reviewed handler result types",
         "x-handler": "DeviceHandler.DeleteDevice",
         "x-source": {
-          "line": 166,
+          "line": 168,
           "path": "backend/internal/handler/device_handler.go"
         }
       },
@@ -12081,7 +12113,7 @@
         "x-contract-evidence": "Gin registry + Go AST + reviewed handler result types",
         "x-handler": "DeviceHandler.GetDevice",
         "x-source": {
-          "line": 114,
+          "line": 116,
           "path": "backend/internal/handler/device_handler.go"
         }
       },
@@ -12176,7 +12208,7 @@
         "x-contract-evidence": "Gin registry + Go AST + reviewed handler result types",
         "x-handler": "DeviceHandler.UpdateDevice",
         "x-source": {
-          "line": 148,
+          "line": 150,
           "path": "backend/internal/handler/device_handler.go"
         }
       }
@@ -12273,7 +12305,7 @@
         "x-contract-evidence": "Gin registry + Go AST + reviewed handler result types",
         "x-handler": "DeviceHandler.Assign",
         "x-source": {
-          "line": 182,
+          "line": 184,
           "path": "backend/internal/handler/device_handler.go"
         }
       }
@@ -12370,7 +12402,7 @@
         "x-contract-evidence": "Gin registry + Go AST + reviewed handler result types",
         "x-handler": "DeviceHandler.Decommission",
         "x-source": {
-          "line": 214,
+          "line": 216,
           "path": "backend/internal/handler/device_handler.go"
         }
       }
@@ -12463,7 +12495,7 @@
         "x-contract-evidence": "Gin registry + Go AST + reviewed handler result types",
         "x-handler": "DeviceHandler.History",
         "x-source": {
-          "line": 232,
+          "line": 234,
           "path": "backend/internal/handler/device_handler.go"
         }
       }
@@ -12560,7 +12592,7 @@
         "x-contract-evidence": "Gin registry + Go AST + reviewed handler result types",
         "x-handler": "DeviceHandler.Move",
         "x-source": {
-          "line": 186,
+          "line": 188,
           "path": "backend/internal/handler/device_handler.go"
         }
       }
@@ -14668,7 +14700,7 @@
         "x-contract-evidence": "Gin registry + Go AST + reviewed handler result types",
         "x-handler": "DeviceHandler.RackLayout",
         "x-source": {
-          "line": 245,
+          "line": 247,
           "path": "backend/internal/handler/device_handler.go"
         }
       }
@@ -15240,7 +15272,7 @@
         "x-contract-evidence": "Gin registry + Go AST + reviewed handler result types",
         "x-handler": "DeviceHandler.CommitRackDiagramImport",
         "x-source": {
-          "line": 277,
+          "line": 279,
           "path": "backend/internal/handler/device_handler.go"
         }
       }
@@ -15337,7 +15369,7 @@
         "x-contract-evidence": "Gin registry + Go AST + reviewed handler result types",
         "x-handler": "DeviceHandler.ValidateRackDiagramImport",
         "x-source": {
-          "line": 258,
+          "line": 260,
           "path": "backend/internal/handler/device_handler.go"
         }
       }

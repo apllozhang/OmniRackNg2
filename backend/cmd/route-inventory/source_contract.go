@@ -30,7 +30,7 @@ func readSourceContract(root string) (map[string]interface{}, error) {
 	s := &sourceReader{types: map[string]typeDef{}, schemas: map[string]schema{}}
 	fset := token.NewFileSet()
 	files := map[string]*ast.File{}
-	for _, pkg := range []string{"model", "service", "handler", "middleware", "router"} {
+	for _, pkg := range []string{"model", "service", "repository", "handler", "middleware", "router"} {
 		paths, err := filepath.Glob(filepath.Join(root, pkg, "*.go"))
 		if err != nil {
 			return nil, err
@@ -76,6 +76,35 @@ func readSourceContract(root string) (map[string]interface{}, error) {
 	for _, key := range keys {
 		s.named(key)
 	}
+	deviceSortFields := []string{}
+	for _, file := range files {
+		if file.Name.Name != "repository" {
+			continue
+		}
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Name.Name != "DeviceSortExpressions" {
+				continue
+			}
+			ast.Inspect(fn.Body, func(n ast.Node) bool {
+				ret, ok := n.(*ast.ReturnStmt)
+				if !ok {
+					return true
+				}
+				for _, value := range ret.Results {
+					if fields, ok := value.(*ast.CompositeLit); ok {
+						for _, entry := range fields.Elts {
+							if pair, ok := entry.(*ast.KeyValueExpr); ok {
+								deviceSortFields = append(deviceSortFields, literal(pair.Key))
+							}
+						}
+					}
+				}
+				return true
+			})
+		}
+	}
+	sort.Strings(deviceSortFields)
 	handlers := map[string]interface{}{}
 	errorDefinitions := []map[string]interface{}{}
 	for path, file := range files {
@@ -184,6 +213,10 @@ func readSourceContract(root string) (map[string]interface{}, error) {
 				query["pageSize"]["minimum"], query["pageSize"]["maximum"] = 1, 100
 				query["search"]["maxLength"] = 200
 				query["search"]["description"] = "对完整结果搜索；SQL通配符按字面匹配。"
+			}
+			if key == "DeviceHandler.ListDevices" {
+				query["sortBy"] = schema{"type": "string", "enum": deviceSortFields, "description": "与 sortOrder 同时提供；数据库分页前排序，同值按ID稳定排序，空值最后。省略两者恢复创建时间倒序。"}
+				query["sortOrder"] = schema{"type": "string", "enum": []string{"asc", "desc"}}
 			}
 			if len(query) > 0 {
 				meta["query"] = query

@@ -23,9 +23,9 @@
 | `INTERNAL_ERROR` | 500 | 系统内部错误 | `backend/internal/handler/rack_template_handler.go:21` |
 | `INTERNAL_ERROR` | 500 | 系统内部错误 | `backend/internal/handler/resource_handler.go:427` |
 | `INVALID_CREDENTIALS` | 401 | 用户名或密码错误 | `backend/internal/handler/auth_handler.go:73` |
-| `INVALID_DEVICE_TYPE_ID` | 400 | 设备类型 ID 格式无效 | `backend/internal/handler/device_handler.go:93` |
+| `INVALID_DEVICE_TYPE_ID` | 400 | 设备类型 ID 格式无效 | `backend/internal/handler/device_handler.go:95` |
 | `INVALID_LDAP_CONFIG` | 400 | 动态：来自业务错误 | `backend/internal/handler/admin_handler.go:301` |
-| `INVALID_RACK_ID` | 400 | 机柜 ID 格式无效 | `backend/internal/handler/device_handler.go:101` |
+| `INVALID_RACK_ID` | 400 | 机柜 ID 格式无效 | `backend/internal/handler/device_handler.go:103` |
 | `INVALID_REQUEST` | 400 | enabled 参数格式无效 | `backend/internal/handler/admin_handler.go:31` |
 | `INVALID_REQUEST` | 400 | 用户名和密码不能为空 | `backend/internal/handler/auth_handler.go:57` |
 | `INVALID_REQUEST` | 400 | PDU 参数格式无效 | `backend/internal/handler/pdu_handler.go:18` |

@@ -198,7 +198,7 @@
       }
     ],
     "pagination_tags": 2,
-    "status": "terminal pilot implemented with actual keyboard column resize verification; combination filters, selected export and full narrow/theme acceptance remain",
+    "status": "terminal functional pilot verified: real63-row fixture with combined type/status/site filters, empty reset, selected Excel1-row export and page-size50, prior keyboard width/full export61 verified; complete narrow/theme and broader role/operation acceptance remain",
     "shared_pager_tags": 0
   },
   {
@@ -230,15 +230,16 @@
     "tables": [
       {
         "line": 24,
-        "tag": "<el-table ref=\"deviceTable\" v-loading=\"deviceLoading\" :data=\"devices\" row-key=\"id\" stripe @selection-change=\"onDeviceSelection\">"
+        "tag": "<el-table @sort-change=\"onDeviceSortChange\" ref=\"deviceTable\" v-loading=\"deviceLoading\" :data=\"devices\" row-key=\"id\" stripe @selection-change=\"onDeviceSelection\">"
       },
       {
         "line": 48,
-        "tag": "<el-table :data=\"shownTypes\" stripe>"
+        "tag": "<el-table :data=\"typePageRows\" ref=\"typeTableRef\" @sort-change=\"onTypeSortChange\" stripe>"
       }
     ],
     "pagination_tags": 1,
-    "status": "not yet remediated/audited",
-    "shared_pager_tags": 0
+    "status": "ledger: repository/service whitelist sorting before server pagination, debounced filtering, stable IDs and empty values last; device types: full-collection client sorting/paging/search; real PG61, Element61 and real browser61/export/cross-page selection verified; broad visual acceptance pending",
+    "shared_pager_tags": 1,
+    "sort_exceptions": "Selection and actions unsorted; position uses rack name/code and numeric U range; IP uses textual database order. Form type choices retain full scoped collection."
   }
 ]

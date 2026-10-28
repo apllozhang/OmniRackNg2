@@ -5,12 +5,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"omnirack-replica/backend/internal/model"
 	"omnirack-replica/backend/internal/repository"
 	"omnirack-replica/backend/internal/response"
 	"omnirack-replica/backend/internal/service"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // DeviceHandler exposes device ledger, U-position, history, and approval APIs.
@@ -81,6 +81,8 @@ func (h *DeviceHandler) DeleteDeviceType(c *gin.Context) {
 
 func (h *DeviceHandler) ListDevices(c *gin.Context) {
 	query := repository.DeviceQuery{
+		SortBy:          c.Query("sortBy"),
+		SortOrder:       c.Query("sortOrder"),
 		Scope:           c.Query("scope"),
 		Page:            queryInt(c, "page", 1),
 		PageSize:        queryInt(c, "pageSize", 20),

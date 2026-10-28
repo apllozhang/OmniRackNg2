@@ -180,6 +180,9 @@ func (s *DeviceService) DeleteDeviceType(ctx context.Context, actor Actor, id uu
 }
 
 func (s *DeviceService) ListDevices(ctx context.Context, query repository.DeviceQuery) (DeviceListResult, error) {
+	if _, err := repository.DeviceOrder(query); err != nil {
+		return DeviceListResult{}, opsInvalid("设备排序字段或方向无效")
+	}
 	if query.Scope != "" && query.Scope != "PC" && query.Scope != "ROOM" {
 		return DeviceListResult{}, opsInvalid("设备范围无效")
 	}
