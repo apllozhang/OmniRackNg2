@@ -28,7 +28,7 @@ setup('通过登录页建立可复用的已登录状态', async ({ page }) => {
             displayName: 'Playwright 回归用户',
             authSource: 'local',
             enabled: true,
-            roles: [{ id: 'role-admin', code: 'ADMIN', name: '管理员' }],
+            roles: [{ id: 'role-admin', code: 'system_admin', name: '管理员' }],
           },
         })),
       })
@@ -43,7 +43,7 @@ setup('通过登录页建立可复用的已登录状态', async ({ page }) => {
           displayName: 'Playwright 回归用户',
           authSource: 'local',
           enabled: true,
-          roles: [{ id: 'role-admin', code: 'ADMIN', name: '管理员' }],
+          roles: [{ id: 'role-admin', code: 'system_admin', name: '管理员' }],
         })),
       })
     })

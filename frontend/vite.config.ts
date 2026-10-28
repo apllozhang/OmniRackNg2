@@ -22,15 +22,25 @@ function manualChunks(id: string) {
 }
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), {
+    name: 'replica-build-identity',
+    generateBundle() {
+      const sourceSHA256 = process.env.SOURCE_SHA256 ?? 'development'
+      if (sourceSHA256 !== 'development' && !/^[a-f0-9]{64}$/.test(sourceSHA256)) {
+        throw new Error('SOURCE_SHA256 must be a SHA-256 digest or development')
+      }
+      this.emitFile({ type: 'asset', fileName: 'build-info.json',
+        source: JSON.stringify({ sourceSHA256, package: 'omnirack-replica-frontend' }) + '\n' })
+    },
+  }],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   server: {
-    port: 5173,
+    port: 5174,
     proxy: {
-      '/api': 'http://localhost:8080',
-      '/health': 'http://localhost:8080',
+      '/api': process.env.API_PROXY_TARGET ?? 'http://127.0.0.1:18085',
+      '/health': process.env.API_PROXY_TARGET ?? 'http://127.0.0.1:18085',
     },
   },
   build: {
@@ -42,6 +52,9 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.ts'],
     environment: 'jsdom',
+    // Element Plus table/dialog integration tests render large component trees.
+    maxWorkers: 2,
+    testTimeout: 15000,
     setupFiles: ['./src/test/setup.ts'],
     clearMocks: true,
     restoreMocks: true,

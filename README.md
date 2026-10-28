@@ -152,24 +152,11 @@ project-current/
 
 ## 一键部署
 
-Linux 服务器上可使用 `scripts/deploy.sh` 完成环境变量写入、镜像构建或加载、Compose 启动和健康检查。环境变量通过重复的 `--env KEY=VALUE` 参数传入，脚本不会在日志中打印变量值。
+NAS/正式复刻使用根脚本 `bash deploy.sh`，项目名 `omnirack-replica`，配置为 `.env`，仅发布 15174；首次随机生成数据库、管理员和 JWT 密钥，已有配置保持原样。
 
-```bash
-chmod +x scripts/deploy.sh
-./scripts/deploy.sh
-```
+本地开发另用 `bash scripts/deploy.sh`，项目名 `omnirack-replica-dev`，独立配置 `.env.dev`。首次缺省密码随机生成，可用 `DEFAULT_POSTGRES_PASSWORD`、`DEFAULT_ADMIN_PASSWORD` 或显式 `--env` 配置。备用脚本需要 Bash 4+。此脚本的开发服务会发布下面列出的端口，不用于替代 NAS 的根部署脚本。
 
-首次部署没有 `JWT_SECRET` 时，脚本会自动生成随机密钥并写入 `.env`，后续部署会持久化复用。数据库和管理员配置有兼容性默认值，因此无需参数即可启动；生产环境建议通过 `--env POSTGRES_PASSWORD='...'` 和 `--env ADMIN_PASSWORD='...'` 覆盖默认密码。
-
-也可以直接加载已经打包的 `0.1.0` 镜像：
-
-```bash
-./scripts/deploy.sh \
-  --image-package ./omnirack-replica-images-0.1.0.tar.gz \
-  --env APP_ENV=production
-```
-
-常用参数：`--env-file FILE` 使用指定配置文件、`--with-ldap` 启动 LDAP profile、`--no-build` 跳过构建、`--no-healthcheck` 跳过健康检查。脚本不会执行 `docker compose down -v`，不会删除 PostgreSQL 数据卷。
+开发启动参数：`--env-file FILE`、`--with-ldap`、`--no-build`、`--no-healthcheck`。不会删除 PostgreSQL 数据卷。开发 `.env.dev` 与正式 `.env` 分开保管。
 
 ## 运行环境
 
@@ -177,22 +164,22 @@ Docker Compose 当前包含以下服务：
 
 | 服务 | 容器名 | 默认端口 | 说明 |
 |---|---|---:|---|
-| PostgreSQL | `cabinet-postgres` | `5432` | 业务数据库 |
-| Backend | `cabinet-backend` | `8080` | Go REST API |
-| Frontend | `cabinet-frontend` | `5173` | 前端页面和 API 代理 |
-| LDAP（可选） | `cabinet-ldap` | `1389` | LDAP 联调服务 |
-| Go Dev（可选） | `cabinet-go-dev` | `2222/8081` | Go 开发容器 |
+| PostgreSQL | `omnirack-replica-postgres` | `15435` | 业务数据库 |
+| Backend | `omnirack-replica-backend` | `18085` | Go REST API |
+| Frontend | `omnirack-replica-frontend` | `5174` | 前端页面和 API 代理 |
+| LDAP（可选） | `omnirack-replica-ldap` | `11389` | LDAP 联调服务 |
+| Go Dev（可选） | `omnirack-replica-go-dev` | `2222/8081` | Go 开发容器 |
 
 ## 快速启动
 
 ### 完整容器启动
 
-在项目根目录创建未提交的 `.env` 文件，然后执行：
+开发环境在项目根目录创建未提交的 `.env.dev` 文件，然后执行：
 
 ```powershell
-Copy-Item .env.example .env
+Copy-Item .env.example .env.dev
 # 根据环境修改管理员密码、JWT 密钥和数据库密码
-docker compose up -d --build
+docker compose --env-file .env.dev up -d --build
 ```
 
 查看服务状态和日志：
@@ -216,6 +203,9 @@ docker compose logs --tail=200 frontend
 ```powershell
 cd backend
 go mod download
+# 设置与 .env.dev 一致的凭据；Go 不会自动读取 dotenv 文件
+$env:HTTP_ADDR = '127.0.0.1:18085'
+$env:DATABASE_URL = 'host=127.0.0.1 user=omnirack_replica password=替换为开发库密码 dbname=omnirack_replica port=15435 sslmode=disable'
 go run ./cmd/server
 ```
 
@@ -229,10 +219,10 @@ pnpm dev
 
 访问地址：
 
-- 前端：<http://localhost:5173>
-- 后端：<http://localhost:8080>
-- 存活检查：<http://localhost:8080/health/live>
-- 就绪检查：<http://localhost:8080/health/ready>
+- 前端：<http://localhost:5174>
+- 后端：<http://localhost:18085>
+- 存活检查：<http://localhost:18085/health/live>
+- 就绪检查：<http://localhost:18085/health/ready>
 
 停止服务：
 
@@ -318,9 +308,9 @@ docker compose ps
 
 ```bash
 docker compose logs --tail=200 backend
-curl -i http://127.0.0.1:8080/health/live
-curl -i http://127.0.0.1:8080/health/ready
-curl -I http://127.0.0.1:5173/
+curl -i http://127.0.0.1:18085/health/live
+curl -i http://127.0.0.1:18085/health/ready
+curl -I http://127.0.0.1:5174/
 ```
 
 然后登录系统，检查资源树、大屏布局、U 位操作、设备编辑、Excel 导入导出和管理员权限。
@@ -360,3 +350,7 @@ git tag
 ---
 
 **最后更新：2026-09-04**
+
+## 复刻完整度验证
+
+源码清单、REA 原包对照、构建溯源、临时 PostgreSQL 真实回归和完整源码打包见 [复刻完整度验证](docs/复刻完整度验证.md)。NAS 运行中的三个实例不作为自动写入测试目标。

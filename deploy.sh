@@ -59,8 +59,17 @@ fi
 
 # No source/eval of dotenv files, no old compose file, no volume deletion.
 docker compose --env-file .env config --quiet
+command -v python3 >/dev/null || fail '源码校验需要 Python 3。'
+SOURCE_SHA256="$(python3 scripts/replica_manifest.py | python3 -c 'import json,sys; print(json.load(sys.stdin)["source_sha256"])')"
+export SOURCE_SHA256
 printf '开始拉取基础镜像并构建程序；首次运行需要联网，耗时取决于网络。\n'
-docker compose --env-file .env build --pull
+# Cached/mirrored base images are required on some NAS installations. Pulling is
+# opt-in, and the switch is deliberately not evaluated as shell code.
+case "${PULL_BASE_IMAGES:-false}" in
+  true) docker compose --env-file .env build --pull ;;
+  false) docker compose --env-file .env build ;;
+  *) fail 'PULL_BASE_IMAGES 必须为 true 或 false' ;;
+esac
 docker compose --env-file .env up -d
 printf '检查数据库就绪状态和前端 HTTP 服务……\n'
 ready=false

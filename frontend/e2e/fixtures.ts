@@ -59,5 +59,5 @@ export const rackLayouts = Object.fromEntries(racks.map((item) => [item.id, {
 
 export const currentUser = {
   id: 'user-e2e', username: 'admin', displayName: 'Playwright 回归用户',
-  authSource: 'local', enabled: true, roles: [{ id: 'role-admin', code: 'ADMIN', name: '管理员' }],
+  authSource: 'local', enabled: true, roles: [{ id: 'role-admin', code: 'system_admin', name: '管理员' }],
 }

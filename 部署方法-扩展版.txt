@@ -22,7 +22,7 @@ grep -E '^ADMIN_(USERNAME|PASSWORD)=' .env
 数据库中已有管理员时，修改 .env 的 ADMIN_PASSWORD 不会重置该账号密码。
 
 2、与旧版并行运行
-新项目固定使用 Compose 项目名 cabinet-assets-preview，端口 15174，数据库使用该项目独立数据卷。
+新项目固定使用 Compose 项目名 omnirack-replica，端口 15174，数据库使用该项目独立数据卷。
 原版 5173 和原数据库不会被部署脚本修改。不会自动复制旧资产，本版初次部署是空库。
 请勿把本包解压进原部署目录，也不要使用 --overwrite 覆盖旧版。
 后续如要迁移旧数据，先备份并在测试库验证，再安排切换。

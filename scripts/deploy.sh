@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
-ENV_FILE="${PROJECT_ROOT}/.env"
+ENV_FILE="${PROJECT_ROOT}/.env.dev"
 ENV_FILE_SOURCE=""
 IMAGE_PACKAGE=""
 VERSION="${DEPLOY_VERSION:-0.1.0}"
@@ -12,16 +12,16 @@ WITH_LDAP=0
 DO_BUILD=1
 DO_HEALTHCHECK=1
 HEALTH_TIMEOUT=90
-BACKEND_URL="${BACKEND_URL:-http://127.0.0.1:8080}"
-FRONTEND_URL="${FRONTEND_URL:-http://127.0.0.1:5173}"
+BACKEND_URL="${BACKEND_URL:-http://127.0.0.1:18085}"
+FRONTEND_URL="${FRONTEND_URL:-http://127.0.0.1:5174}"
 
 declare -a ENV_ARGS=()
 declare -A OVERRIDES=()
 
-# 首次部署使用这些兼容性默认值；写入 .env 后会在后续重启/升级中复用。
-DEFAULT_POSTGRES_PASSWORD=omnirack_replica
+# 首次部署使用这些兼容性默认值；写入 .env.dev 后会在后续重启/升级中复用。
+DEFAULT_POSTGRES_PASSWORD="${DEFAULT_POSTGRES_PASSWORD:-}"
 DEFAULT_ADMIN_USERNAME="${DEFAULT_ADMIN_USERNAME:-admin}"
-DEFAULT_ADMIN_PASSWORD="${DEFAULT_ADMIN_PASSWORD:-ChangeMe123!}"
+DEFAULT_ADMIN_PASSWORD="${DEFAULT_ADMIN_PASSWORD:-}"
 
 usage() {
   cat <<'USAGE'
@@ -29,16 +29,16 @@ usage() {
   ./scripts/deploy.sh [选项]
 
 常用选项：
-  --env KEY=VALUE       设置或覆盖 .env 中的变量，可重复使用
-  --env-file FILE       以指定文件作为 .env 基础，再应用所有 --env 参数
+  --env KEY=VALUE       设置或覆盖 .env.dev 中的变量，可重复使用
+  --env-file FILE       以指定文件作为 .env.dev 基础，再应用所有 --env 参数
   --image-package FILE 加载已打包的 Docker 镜像 tar/tar.gz，跳过源码构建
   --version VERSION     镜像版本，默认读取 DEPLOY_VERSION，否则为 0.1.0
   --with-ldap           同时启动 ldap profile
   --no-build            不构建镜像，直接使用本机已有镜像
   --no-healthcheck      部署完成后不执行 HTTP 健康检查
   --health-timeout SEC  健康检查最大等待秒数，默认 90
-  --backend-url URL     后端健康检查地址，默认 http://127.0.0.1:8080
-  --frontend-url URL    前端检查地址，默认 http://127.0.0.1:5173
+  --backend-url URL     后端健康检查地址，默认 http://127.0.0.1:18085
+  --frontend-url URL    前端检查地址，默认 http://127.0.0.1:5174
   -h, --help            显示帮助
 
 示例：
@@ -261,9 +261,13 @@ CONFIG_SOURCE="$ENV_FILE"
 if [[ -n "$ENV_FILE_SOURCE" ]]; then
   CONFIG_SOURCE="$ENV_FILE_SOURCE"
 fi
-ensure_default_env "POSTGRES_PASSWORD" "$DEFAULT_POSTGRES_PASSWORD" "$CONFIG_SOURCE"
+if ! [[ -v "OVERRIDES[POSTGRES_PASSWORD]" ]] && ! has_dotenv_value "$CONFIG_SOURCE" "POSTGRES_PASSWORD"; then
+  OVERRIDES["POSTGRES_PASSWORD"]="${DEFAULT_POSTGRES_PASSWORD:-$(generate_jwt_secret)}"
+fi
 ensure_default_env "ADMIN_USERNAME" "$DEFAULT_ADMIN_USERNAME" "$CONFIG_SOURCE"
-ensure_default_env "ADMIN_PASSWORD" "$DEFAULT_ADMIN_PASSWORD" "$CONFIG_SOURCE"
+if ! [[ -v "OVERRIDES[ADMIN_PASSWORD]" ]] && ! has_dotenv_value "$CONFIG_SOURCE" "ADMIN_PASSWORD"; then
+  OVERRIDES["ADMIN_PASSWORD"]="${DEFAULT_ADMIN_PASSWORD:-$(generate_jwt_secret)}"
+fi
 if ! [[ -v "OVERRIDES[JWT_SECRET]" ]] && ! has_dotenv_value "$CONFIG_SOURCE" "JWT_SECRET"; then
   OVERRIDES["JWT_SECRET"]="$(generate_jwt_secret)"
   log "首次部署已自动生成 JWT_SECRET，并将持久化到 .env（密钥内容不会输出）"
@@ -290,25 +294,25 @@ if [[ -n "$IMAGE_PACKAGE" ]]; then
   [[ -f "$IMAGE_PACKAGE" ]] || fail "镜像包不存在：${IMAGE_PACKAGE}"
   log "加载镜像包（不输出镜像层内容）"
   docker load -i "$IMAGE_PACKAGE"
-  docker tag "omnirack-replica-backend:${VERSION}" omnirack-replica-backend:latest
-  docker tag "omnirack-replica-frontend:${VERSION}" omnirack-replica-frontend:latest
+  docker tag "omnirack-replica-dev-backend:${VERSION}" omnirack-replica-dev-backend:latest
+  docker tag "omnirack-replica-dev-frontend:${VERSION}" omnirack-replica-dev-frontend:latest
   docker tag "omnirack-replica-postgres:${VERSION}" postgres:16-alpine
   DO_BUILD=0
 fi
 
 if (( DO_BUILD )); then
   log "构建 backend/frontend 镜像，版本：${VERSION}"
-  docker compose build --pull=false backend frontend
-  docker tag omnirack-replica-backend:latest "omnirack-replica-backend:${VERSION}"
-  docker tag omnirack-replica-frontend:latest "omnirack-replica-frontend:${VERSION}"
+  docker compose --env-file "$ENV_FILE" -p omnirack-replica-dev -f docker-compose.yml build --pull=false backend frontend
+  docker tag omnirack-replica-dev-backend:latest "omnirack-replica-dev-backend:${VERSION}"
+  docker tag omnirack-replica-dev-frontend:latest "omnirack-replica-dev-frontend:${VERSION}"
   if ! docker image inspect "omnirack-replica-postgres:${VERSION}" >/dev/null 2>&1; then
-    docker image inspect postgres:16-alpine >/dev/null 2>&1 || docker compose pull postgres
+    docker image inspect postgres:16-alpine >/dev/null 2>&1 || docker compose --env-file "$ENV_FILE" -p omnirack-replica-dev -f docker-compose.yml pull postgres
     docker tag postgres:16-alpine "omnirack-replica-postgres:${VERSION}"
   fi
 fi
 
 services=(postgres backend frontend)
-compose_args=()
+compose_args=(--env-file "$ENV_FILE" -p omnirack-replica-dev -f docker-compose.yml)
 if (( WITH_LDAP )); then
   compose_args+=(--profile ldap)
   services+=(ldap)

@@ -2,7 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"flag"
 	"log"
+	"os"
+	"runtime"
 	"time"
 
 	"omnirack-replica/backend/internal/config"
@@ -12,7 +16,21 @@ import (
 	"omnirack-replica/backend/internal/service"
 )
 
+// Populated by the verified build; development builds remain explicit.
+var sourceSHA256 = "development"
+
 func main() {
+	showBuildInfo := flag.Bool("build-info", false, "print build identity without connecting to a database")
+	flag.Parse()
+	if *showBuildInfo {
+		if err := json.NewEncoder(os.Stdout).Encode(map[string]string{
+			"sourceSHA256": sourceSHA256, "goVersion": runtime.Version(),
+			"module": "omnirack-replica/backend",
+		}); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("load config: %v", err)

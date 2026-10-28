@@ -13,6 +13,8 @@ npm install
 npm run dev
 ```
 
-默认开发地址：`http://localhost:5173`
+默认开发地址：`http://localhost:5174`
 
-前端通过 Vite 将 `/api` 和 `/health` 代理到 `http://localhost:8080`。可通过 `VITE_API_BASE_URL` 覆盖 API 地址。
+前端通过 Vite 将 `/api` 和 `/health` 代理到 `http://127.0.0.1:18085`。可通过 `VITE_API_BASE_URL` 覆盖 API 地址。
+
+通过 `API_PROXY_TARGET=http://127.0.0.1:其他端口 npm run dev` 指向自定义后端。

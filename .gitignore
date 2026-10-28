@@ -38,3 +38,8 @@ backups/
 .asset-maintenance.lock
 *.tar.gpg
 *.partial
+
+# Reproducible verification output and optional REA tool installation
+artifacts/
+tools/rea/node_modules/
+__pycache__/

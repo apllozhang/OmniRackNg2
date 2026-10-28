@@ -1,3 +1,5 @@
+# Never share service labels with the NAS production project.
+name: omnirack-replica-dev
 services:
   postgres:
     restart: unless-stopped
@@ -50,7 +52,7 @@ services:
         GOPROXY: ${GOPROXY:-https://goproxy.cn,direct}
     container_name: omnirack-replica-backend
     env_file:
-      - .env
+      - .env.dev
     environment:
       DATABASE_URL: host=postgres user=${POSTGRES_USER:-omnirack_replica} password=${POSTGRES_PASSWORD:-omnirack_replica} dbname=${POSTGRES_DB:-omnirack_replica} port=5432 sslmode=disable TimeZone=UTC
       HTTP_ADDR: :8080
