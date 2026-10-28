@@ -177,7 +177,7 @@ onMounted(loadTemplates)
 .template-page { max-width: 1500px; margin: 0 auto; }
 .page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; }
 .page-header h2 { margin:0 0 8px; }
-.page-header p { margin:0; color:#6b7280; }
+.page-header p { margin:0; color:var(--color-text-muted); }
 .header-actions { display:flex; gap:10px; }
 .table-card { margin-top:16px; }
 .system-tag { margin-left:8px; }

@@ -34,3 +34,24 @@ for (const path of routes) {
     }
   })
 }
+
+test('WebUI theme persists and navigation fits narrow screens', async ({ page }, testInfo) => {
+  await page.goto('/')
+  const toggle = page.getByRole('button', { name: '切换亮暗主题' })
+  await expect(toggle).toBeVisible()
+  const original = await page.locator('html').getAttribute('data-theme')
+  await toggle.click()
+  const changed = await page.locator('html').getAttribute('data-theme')
+  expect(changed).not.toBe(original)
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', changed!)
+  for (const width of [1440, 768, 320]) {
+    await page.setViewportSize({ width, height: 900 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+    await testInfo.attach(`webui-${changed}-${width}.png`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' })
+  }
+  await page.getByRole('button', { name: '打开导航' }).click()
+  await expect(page.getByRole('button', { name: '打开导航' })).toHaveAttribute('aria-expanded', 'true')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: '打开导航' })).toHaveAttribute('aria-expanded', 'false')
+})

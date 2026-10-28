@@ -41,5 +41,5 @@ onMounted(load)
   </div>
 </template>
 <style scoped>
-.scan-access-page{max-width:1100px;margin:auto;display:grid;gap:20px}.access-heading{display:flex;justify-content:space-between;align-items:center;gap:16px}.access-heading h1{margin:0;font-size:26px}.access-heading p,.access-muted{color:#75859a;font-size:13px;line-height:1.8}.access-entries{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.scan-access-page h2{font-size:17px;margin-top:0}.entry-url{word-break:break-all;font-size:14px}.scan-access-page a{color:#4d77bf}.scan-access-page .el-card p{line-height:1.8}@media(max-width:700px){.access-entries{grid-template-columns:1fr}}
+.scan-access-page{max-width:1100px;margin:auto;display:grid;gap:20px}.access-heading{display:flex;justify-content:space-between;align-items:center;gap:16px}.access-heading h1{margin:0;font-size:26px}.access-heading p,.access-muted{color:#75859a;font-size:13px;line-height:1.8}.access-entries{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.scan-access-page h2{font-size:17px;margin-top:0}.entry-url{word-break:break-all;font-size:14px}.scan-access-page a{color:var(--color-action)}.scan-access-page .el-card p{line-height:1.8}@media(max-width:700px){.access-entries{grid-template-columns:1fr}}
 </style>

@@ -172,6 +172,6 @@ function statusType(row: RuntimeRow) {
 </script>
 
 <style scoped>
-.import-alert,.preview-alert{margin-bottom:14px}.import-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}.file-name{max-width:320px;color:#606266;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.import-summary{margin-bottom:14px}.import-summary :deep(.el-card__body){display:flex;align-items:center;justify-content:space-between;padding:14px 16px}.import-summary span{color:#6b7280}.import-summary strong{font-size:24px}.success-text{color:#16a34a}.danger-text{color:#dc2626}
+.import-alert,.preview-alert{margin-bottom:14px}.import-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}.file-name{max-width:320px;color:#606266;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.import-summary{margin-bottom:14px}.import-summary :deep(.el-card__body){display:flex;align-items:center;justify-content:space-between;padding:14px 16px}.import-summary span{color:var(--color-text-muted)}.import-summary strong{font-size:24px}.success-text{color:#16a34a}.danger-text{color:#dc2626}
 </style>
 

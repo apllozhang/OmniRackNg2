@@ -373,22 +373,22 @@ onMounted(() => { void loadTree(); void loadRackTemplates() })
 .resource-page { max-width: 1500px; margin: 0 auto; }
 .page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; }
 .page-header h2 { margin:0 0 8px; }
-.page-header p { margin:0; color:#6b7280; }
+.page-header p { margin:0; color:var(--color-text-muted); }
 .header-actions { display:flex; gap:10px; }
 .summary-row { margin-bottom:16px; }
 .summary { display:flex; align-items:baseline; gap:12px; }
-.summary span { color:#6b7280; }
-.summary strong { font-size:28px; color:#111827; }
-.summary small { margin-left:auto; color:#9ca3af; }
+.summary span { color:var(--color-text-muted); }
+.summary strong { font-size:28px; color:var(--color-text-primary); }
+.summary small { margin-left:auto; color:var(--color-text-muted); }
 .resource-columns { min-height:560px; }
 .resource-card { height:100%; min-height:560px; }
 .card-title { display:flex; align-items:center; justify-content:space-between; font-weight:700; }
-.resource-item { display:flex; align-items:flex-start; gap:10px; padding:13px 10px; margin-bottom:8px; border:1px solid #e5e7eb; border-radius:8px; cursor:pointer; transition:.15s ease; }
+.resource-item { display:flex; align-items:flex-start; gap:10px; padding:13px 10px; margin-bottom:8px; border:1px solid var(--color-border-soft); border-radius:8px; cursor:pointer; transition:.15s ease; }
 .resource-item:hover { border-color:#93c5fd; background:#f8fbff; }
-.resource-item.active { border-color:#409eff; background:#ecf5ff; }
+.resource-item.active { border-color:var(--color-action); background:#ecf5ff; }
 .item-main { min-width:0; flex:1; }
 .item-name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.item-code, .item-meta { margin-top:4px; color:#6b7280; font-size:12px; }
+.item-code, .item-meta { margin-top:4px; color:var(--color-text-muted); font-size:12px; }
 .rack-card :deep(.el-card__body) { padding-top:12px; }
 .rack-template-alert { margin-bottom:16px; }
 .transfer-tip { margin-bottom:18px; }

@@ -58,5 +58,5 @@ onMounted(load)
 </script>
 
 <style scoped>
-.approval-email{margin-top:18px}.test-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.help{font-size:13px;line-height:1.7;color:#64748b;overflow-wrap:anywhere}.help a{color:#4d77be}
+.approval-email{margin-top:18px}.test-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.help{font-size:13px;line-height:1.7;color:var(--color-text-secondary);overflow-wrap:anywhere}.help a{color:#4d77be}
 </style>

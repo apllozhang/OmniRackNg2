@@ -43,13 +43,13 @@ async function submit() {
 </script>
 
 <style scoped>
-.login-page { min-height: 100vh; display: flex; gap: 90px; justify-content:center; align-items: center; padding:40px; background:radial-gradient(ellipse at 20% 40%,#e5edf9,transparent 60%),#f4f7fb; }
+.login-page { min-height: 100vh; display: flex; gap: 90px; justify-content:center; align-items: center; padding:40px; background:radial-gradient(ellipse at 20% 40%,#e5edf9,transparent 60%),var(--color-canvas); }
 .login-card { width: min(400px, calc(100vw - 30px)); flex:none;border:1px solid #e0e8f4;border-radius:16px;padding:20px;box-shadow:0 20px 70px #1d3a6010; }
-.login-intro{max-width:510px;color:#314969}.login-eyebrow{font-size:11px;letter-spacing:2.5px;color:#718cad}.login-intro h2{font-size:40px;font-weight:600;line-height:1.5;margin:23px 0;letter-spacing:-1px}.login-intro p{font-size:13px;color:#7a8da8;line-height:2.1}.login-topics{display:flex;gap:20px;margin-top:33px;font-size:11px;color:#7085a1}.login-topics span{border-left:2px solid #9eb9df;padding-left:11px}.login-mark{display:grid;place-items:center;width:44px;height:44px;background:#4d77bf;border-radius:12px;color:white;font-size:21px;font-weight:700;margin:0 auto 20px}.brand h1{font-size:23px}.brand p{font-size:12px}
+.login-intro{max-width:510px;color:#314969}.login-eyebrow{font-size:11px;letter-spacing:2.5px;color:#718cad}.login-intro h2{font-size:40px;font-weight:600;line-height:1.5;margin:23px 0;letter-spacing:-1px}.login-intro p{font-size:13px;color:#7a8da8;line-height:2.1}.login-topics{display:flex;gap:20px;margin-top:33px;font-size:11px;color:#7085a1}.login-topics span{border-left:2px solid #9eb9df;padding-left:11px}.login-mark{display:grid;place-items:center;width:44px;height:44px;background:var(--color-action);border-radius:12px;color:white;font-size:21px;font-weight:700;margin:0 auto 20px}.brand h1{font-size:23px}.brand p{font-size:12px}
 @media(max-width:1000px){.login-page{gap:40px}.login-intro h2{font-size:32px}.login-intro p br{display:none}}@media(max-width:760px){.login-intro{display:none}.login-page{padding:20px}.login-card{padding:12px}}
 .brand { text-align: center; margin-bottom: 24px; }
-.brand h1 { margin: 0 0 8px; color: #1f2937; }
-.brand p { margin: 0; color: #6b7280; }
+.brand h1 { margin: 0 0 8px; color: var(--color-text-primary); }
+.brand p { margin: 0; color: var(--color-text-muted); }
 .submit-button { width: 100%; }
 .error-alert { margin-top: 16px; }
 </style>
