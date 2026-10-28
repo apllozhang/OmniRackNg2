@@ -1,0 +1,110 @@
+services:
+  postgres:
+    restart: unless-stopped
+    image: postgres:16-alpine
+    container_name: omnirack-replica-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-omnirack_replica}
+      POSTGRES_USER: ${POSTGRES_USER:-omnirack_replica}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-omnirack_replica}
+    ports:
+      - "${POSTGRES_HOST_PORT:-15435}:5432"
+    volumes:
+      - omnirack-replica-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # 可选真实 LDAP 联调服务；默认环境不启动，使用 --profile ldap 启用。
+  ldap:
+    restart: unless-stopped
+    profiles: ["ldap"]
+    build:
+      context: ./deploy/ldap
+    container_name: omnirack-replica-ldap
+    environment:
+      LDAP_ORGANISATION: ${LDAP_ORGANISATION:-Cabinet Management Tool}
+      LDAP_DOMAIN: ${LDAP_DOMAIN:-example.org}
+      LDAP_ADMIN_PASSWORD: ${LDAP_ADMIN_PASSWORD:-disabled-when-ldap-profile-is-not-enabled}
+      LDAP_TLS: "false"
+      LDAP_READONLY_USER: "false"
+    ports:
+      - "${LDAP_HOST_PORT:-11389}:389"
+    volumes:
+      - omnirack-replica-ldap-data:/var/lib/ldap
+      - omnirack-replica-ldap-config:/etc/ldap/slapd.d
+
+    healthcheck:
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://127.0.0.1:389 -D cn=admin,${LDAP_BASE_DN:-dc=example,dc=org} -w $${LDAP_ADMIN_PASSWORD} -b ${LDAP_BASE_DN:-dc=example,dc=org} -s base dn >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    restart: unless-stopped
+    build:
+      context: ./backend
+      args:
+        GOPROXY: ${GOPROXY:-https://goproxy.cn,direct}
+    container_name: omnirack-replica-backend
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: host=postgres user=${POSTGRES_USER:-omnirack_replica} password=${POSTGRES_PASSWORD:-omnirack_replica} dbname=${POSTGRES_DB:-omnirack_replica} port=5432 sslmode=disable TimeZone=UTC
+      HTTP_ADDR: :8080
+    ports:
+      - "18085:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # 仅用于本地开发：提供 Go 工具链和 SSH 远程终端，不参与默认启动。
+  go-dev:
+    restart: unless-stopped
+    profiles: ["dev"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+      args:
+        DEBIAN_MIRROR: ${DEBIAN_MIRROR:-mirrors.aliyun.com}
+    container_name: omnirack-replica-go-dev
+    environment:
+      DEV_SSH_PASSWORD: "${DEV_SSH_PASSWORD:-ChangeMe123!}"
+      DEV_SSH_PUBLIC_KEY: "${DEV_SSH_PUBLIC_KEY:-}"
+      DATABASE_URL: host=postgres user=${POSTGRES_USER:-omnirack_replica} password=${POSTGRES_PASSWORD:-omnirack_replica} dbname=${POSTGRES_DB:-omnirack_replica} port=5432 sslmode=disable TimeZone=UTC
+      HTTP_ADDR: :8080
+      TZ: ${TZ:-Asia/Shanghai}
+      GOPROXY: ${GOPROXY:-https://goproxy.cn,direct}
+      PATH: /usr/local/go/bin:/go/bin:/home/developer/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    working_dir: /workspace
+    volumes:
+      - ./backend:/workspace
+      - go-mod-cache:/home/developer/go/pkg/mod
+      - go-build-cache:/home/developer/.cache/go-build
+    ports:
+      - "2222:22"
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    restart: unless-stopped
+    build:
+      context: ./frontend
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
+    container_name: omnirack-replica-frontend
+    ports:
+      - "5174:80"
+    depends_on:
+      - backend
+
+volumes:
+  omnirack-replica-postgres-data:
+  omnirack-replica-ldap-data:
+  omnirack-replica-ldap-config:
+  go-mod-cache:
+  go-build-cache:

@@ -1,0 +1,15 @@
+package main
+import (
+ "fmt"
+ "os"
+ "sync"
+ "omnirack-replica/backend/internal/model"
+ "gorm.io/driver/postgres"
+ "gorm.io/gorm"
+ "gorm.io/gorm/schema"
+)
+func main(){
+ dsn:=os.Getenv("DATABASE_URL"); db,e:=gorm.Open(postgres.Open(dsn),&gorm.Config{}); fmt.Printf("open=%v\n",e)
+ var xs []model.PDUSocket; e=db.Debug().Where("pdu_id = ?", "bdb08042-8cb1-4290-9b89-f36c454df3f3").Find(&xs).Error; fmt.Printf("find=%v n=%d\n",e,len(xs))
+ for _, typ:=range []interface{}{&model.PDU{},&model.PDUSocket{},&model.PDUConnection{}} {s,e:=schema.Parse(typ,&sync.Map{},schema.NamingStrategy{});fmt.Printf("%T parse=%v rels=",typ,e);if s!=nil{for n,r:=range s.Relationships.Relations{fmt.Printf("%s:%s ",n,r.Type)}};fmt.Println()}
+}

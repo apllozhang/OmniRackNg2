@@ -1,0 +1,31 @@
+# 开发容器 SSH 配置；请勿直接用于生产环境。
+Port 22
+AddressFamily any
+ListenAddress 0.0.0.0
+
+HostKey /etc/ssh/ssh_host_ed25519_key
+HostKey /etc/ssh/ssh_host_rsa_key
+
+PermitRootLogin no
+AllowUsers developer
+
+PasswordAuthentication yes
+PermitEmptyPasswords no
+PubkeyAuthentication yes
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+UsePAM no
+
+X11Forwarding no
+AllowTcpForwarding yes
+GatewayPorts no
+PermitTunnel no
+
+ClientAliveInterval 300
+ClientAliveCountMax 2
+LoginGraceTime 30
+MaxAuthTries 5
+
+PrintMotd no
+UseDNS no
+Subsystem sftp internal-sftp

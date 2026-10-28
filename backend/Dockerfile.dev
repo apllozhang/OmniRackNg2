@@ -1,0 +1,56 @@
+# Go 远程开发容器（仅用于开发环境，不用于生产部署）
+FROM golang:1.24-bookworm
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=Asia/Shanghai \
+    GOPROXY=https://goproxy.cn,direct \
+    GOMODCACHE=/home/developer/go/pkg/mod \
+    GOCACHE=/home/developer/.cache/go-build \
+    PATH=/usr/local/go/bin:/go/bin:/home/developer/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+ARG DEBIAN_MIRROR=mirrors.aliyun.com
+
+# 目标开发服务器位于中国网络环境，使用可覆盖的镜像源避免 deb.debian.org 访问超时。
+RUN sed -i "s|deb.debian.org|${DEBIAN_MIRROR}|g" /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        bash \
+        bash-completion \
+        ca-certificates \
+        curl \
+        git \
+        iproute2 \
+        less \
+        make \
+        nano \
+        netcat-openbsd \
+        openssh-client \
+        openssh-server \
+        procps \
+        sudo \
+        tzdata \
+        unzip \
+        vim-tiny \
+        wget \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --shell /bin/bash --uid 1000 --user-group developer \
+    && mkdir -p /run/sshd /workspace /home/developer/.ssh /home/developer/go/pkg/mod /home/developer/.cache/go-build \
+    && chown -R developer:developer /workspace /home/developer \
+    && chmod 700 /home/developer/.ssh \
+    && printf 'developer ALL=(ALL) NOPASSWD:ALL\n' > /etc/sudoers.d/developer \
+    && chmod 0440 /etc/sudoers.d/developer
+
+# SSH 非登录会话可能使用固定 PATH，将 Go 主程序暴露到常见 PATH 中。
+RUN ln -sf /usr/local/go/bin/go /usr/local/bin/go \
+    && ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+
+COPY sshd_config /etc/ssh/sshd_config
+COPY docker-entrypoint.dev.sh /usr/local/bin/docker-entrypoint.dev.sh
+RUN chmod 0755 /usr/local/bin/docker-entrypoint.dev.sh
+
+WORKDIR /workspace
+
+# 22 用于 SSH，8080 用于容器内运行 Go 后端服务。
+EXPOSE 22 8080
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.dev.sh"]

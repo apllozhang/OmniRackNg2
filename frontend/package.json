@@ -1,0 +1,41 @@
+{
+  "name": "omnirack-replica-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit -p tsconfig.app.json && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.app.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:update": "playwright test --update-snapshots",
+    "test:e2e:install": "playwright install chromium"
+  },
+  "dependencies": {
+    "@zxing/browser": "^0.1.5",
+    "axios": "^1.7.9",
+    "element-plus": "^2.9.3",
+    "pinia": "^2.3.0",
+    "qrcode": "^1.5.4",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0",
+    "xlsx-js-style": "1.2.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/qrcode": "^1.5.6",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vitest/coverage-v8": "^4.1.11",
+    "@vue/test-utils": "^2.5.0",
+    "@vue/tsconfig": "^0.7.0",
+    "jsdom": "^30.0.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.1.0",
+    "vitest": "^4.1.11",
+    "vue-tsc": "^2.2.0"
+  }
+}

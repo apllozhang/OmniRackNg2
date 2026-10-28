@@ -1,0 +1,65 @@
+package router
+
+import (
+	"omnirack-replica/backend/internal/handler"
+	"omnirack-replica/backend/internal/middleware"
+	"github.com/gin-gonic/gin"
+)
+
+func RegisterAssetOperations(r *gin.Engine, h *handler.AssetOperationsHandler, secret string) {
+	g := r.Group("/api/v1/asset-ops", middleware.Auth(secret), h.CurrentAccess())
+	g.GET("/access/settings", h.ScanAccess)
+	g.PUT("/access/settings", middleware.RequireAdmin(), h.SaveScanAccess)
+	g.GET("/sites", h.Sites)
+	g.POST("/sites", h.CreateSite)
+	g.PUT("/sites/:id", h.UpdateSite)
+	g.DELETE("/sites/:id", h.DeleteCatalog("asset_site"))
+	g.GET("/devices", h.Devices)
+	g.POST("/terminal-devices", h.RegisterTerminal)
+	g.GET("/devices/:id/terminal-state", h.TerminalState)
+	g.GET("/devices/:id/pc-history", h.PCHistory)
+	g.POST("/devices/:id/pc-handover", h.ConfirmPCHandover)
+	g.PUT("/devices/:id/profile", h.Profile)
+	g.POST("/devices/:id/coverages", h.Coverage)
+	g.GET("/specs", h.Specs)
+	g.POST("/specs", h.CreateSpec)
+	g.PUT("/specs/:id", h.UpdateSpec)
+	g.DELETE("/specs/:id", h.DeleteCatalog("spare_spec"))
+	g.GET("/stocks", h.Stocks)
+	g.POST("/stocks", h.CreateStock)
+	g.POST("/stock-receipts", h.ReceiveSpare)
+	g.PUT("/stocks/:id", h.UpdateStock)
+	g.DELETE("/stocks/:id", h.DeleteCatalog("spare_stock"))
+	g.POST("/stocks/:id/move", h.MoveStock)
+	g.GET("/movements", h.Movements)
+	g.GET("/minimums", h.Minimums)
+	g.POST("/minimums", h.SaveMinimum)
+	g.PUT("/minimums/:id", h.UpdateMinimum)
+	g.DELETE("/minimums/:id", h.DeleteCatalog("spare_minimum"))
+	g.GET("/checks", h.Checks)
+	g.POST("/checks", h.CreateCheck)
+	g.GET("/checks/:id/lines", h.Lines)
+	g.POST("/checks/:id/scan", h.Scan)
+	g.POST("/checks/:id/lines/:lineId/resolve", h.Resolve)
+	g.POST("/checks/:id/close", h.Close)
+	g.GET("/checks/:id/discoveries", h.Discoveries)
+	g.POST("/checks/:id/discoveries", h.Discover)
+	g.POST("/checks/:id/discoveries/:discoveryId/resolve", h.ResolveDiscovery)
+	g.GET("/reminders", h.Reminders)
+	g.POST("/reminders/refresh", h.Refresh)
+	g.POST("/reminders/:id/acknowledge", h.Acknowledge)
+	g.GET("/operators", h.Operators)
+	g.GET("/audit", h.Audit)
+	g.POST("/export", h.Export)
+}
+
+func RegisterNotifications(r *gin.Engine, h *handler.NotificationHandler, access *handler.AssetOperationsHandler, secret string) {
+	g := r.Group("/api/v1/asset-ops/notifications", middleware.Auth(secret), access.CurrentAccess(), middleware.RequireAdmin())
+	g.GET("/settings", h.Settings)
+	g.PUT("/settings", h.Save)
+	g.GET("/approval-settings", h.ApprovalSettings)
+	g.PUT("/approval-settings", h.SaveApprovalSettings)
+	g.POST("/test", h.Test)
+	g.POST("/approval-test", h.TestApproval)
+	g.GET("/deliveries", h.Deliveries)
+}

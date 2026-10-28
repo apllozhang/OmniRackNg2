@@ -1,0 +1,19 @@
+# Base records are provisioned by osixia/openldap from LDAP_DOMAIN.
+# This file adds the application OUs and role-mapping groups.
+dn: ou=people,dc=example,dc=org
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=example,dc=org
+objectClass: organizationalUnit
+ou: groups
+
+dn: cn=cabinet-users,ou=groups,dc=example,dc=org
+objectClass: groupOfNames
+cn: cabinet-users
+member: cn=admin,dc=example,dc=org
+
+dn: cn=cabinet-admins,ou=groups,dc=example,dc=org
+objectClass: groupOfNames
+cn: cabinet-admins
+member: cn=admin,dc=example,dc=org

@@ -1,0 +1,300 @@
+package repository
+
+import (
+	"context"
+	"errors"
+	"time"
+
+	"omnirack-replica/backend/internal/model"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
+var ErrVersionConflict = errors.New("resource version conflict")
+
+// ResourceStore defines persistence operations required by the resource service.
+type ResourceStore interface {
+	WithinTransaction(context.Context, func(ResourceStore) error) error
+	ListResourceTree(context.Context) ([]model.DataCenter, error)
+	GetDataCenter(context.Context, uuid.UUID) (model.DataCenter, error)
+	CountRoomsByDataCenter(context.Context, uuid.UUID) (int64, error)
+	CreateDataCenter(context.Context, *model.DataCenter) error
+	UpdateDataCenter(context.Context, *model.DataCenter, uint) error
+	DeleteDataCenter(context.Context, uuid.UUID, uint) error
+	GetRoom(context.Context, uuid.UUID) (model.Room, error)
+	CountRacksByRoom(context.Context, uuid.UUID) (int64, error)
+	CreateRoom(context.Context, *model.Room) error
+	UpdateRoom(context.Context, *model.Room, uint) error
+	MoveRoomHierarchy(context.Context, *model.Room, uint) error
+	DeleteRoom(context.Context, uuid.UUID, uint) error
+	GetRack(context.Context, uuid.UUID) (model.Rack, error)
+	CountDevicePositionsByRack(context.Context, uuid.UUID) (int64, error)
+	CreateRack(context.Context, *model.Rack) error
+	UpdateRack(context.Context, *model.Rack, uint) error
+	MoveRackHierarchy(context.Context, *model.Rack, uint) error
+	DeleteRack(context.Context, uuid.UUID, uint) error
+	CreateAuditLog(context.Context, *model.AuditLog) error
+}
+
+// GormResourceStore implements ResourceStore using GORM.
+type GormResourceStore struct {
+	db *gorm.DB
+}
+
+func NewResourceStore(db *gorm.DB) *GormResourceStore { return &GormResourceStore{db: db} }
+
+func (s *GormResourceStore) WithinTransaction(ctx context.Context, fn func(ResourceStore) error) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return fn(&GormResourceStore{db: tx})
+	})
+}
+
+func (s *GormResourceStore) ListResourceTree(ctx context.Context) ([]model.DataCenter, error) {
+	var items []model.DataCenter
+	err := s.db.WithContext(ctx).
+		Order("sort_order ASC, name ASC").
+		Preload("Rooms", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order ASC, name ASC") }).
+		Preload("Rooms.Racks", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order ASC, name ASC") }).
+		Find(&items).Error
+	return items, err
+}
+
+func (s *GormResourceStore) GetDataCenter(ctx context.Context, id uuid.UUID) (model.DataCenter, error) {
+	var item model.DataCenter
+	err := s.db.WithContext(ctx).First(&item, "id = ?", id).Error
+	return item, err
+}
+
+func (s *GormResourceStore) CountRoomsByDataCenter(ctx context.Context, dataCenterID uuid.UUID) (int64, error) {
+	var count int64
+	err := s.db.WithContext(ctx).Model(&model.Room{}).Where("data_center_id = ?", dataCenterID).Count(&count).Error
+	return count, err
+}
+
+func (s *GormResourceStore) CreateDataCenter(ctx context.Context, item *model.DataCenter) error {
+	return s.db.WithContext(ctx).Create(item).Error
+}
+
+func (s *GormResourceStore) UpdateDataCenter(ctx context.Context, item *model.DataCenter, expectedVersion uint) error {
+	updates := dataCenterUpdateValues(item)
+	result := s.db.WithContext(ctx).Model(&model.DataCenter{}).
+		Where("id = ? AND version = ?", item.ID, expectedVersion).Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrVersionConflict
+	}
+	item.Version = expectedVersion + 1
+	return nil
+}
+
+func dataCenterUpdateValues(item *model.DataCenter) map[string]interface{} {
+	return map[string]interface{}{
+		"code": item.Code, "name": item.Name, "address": item.Address,
+		"longitude": item.Longitude, "latitude": item.Latitude, "status": item.Status,
+		"manager": item.Manager, "contact": item.Contact, "service_provider": item.ServiceProvider,
+		"commissioned_at": item.CommissionedAt, "remarks": item.Remarks, "sort_order": item.SortOrder,
+		"version": gorm.Expr("version + 1"), "updated_at": time.Now().UTC(),
+	}
+}
+
+func (s *GormResourceStore) DeleteDataCenter(ctx context.Context, id uuid.UUID, expectedVersion uint) error {
+	result := s.db.WithContext(ctx).Where("id = ? AND version = ?", id, expectedVersion).Delete(&model.DataCenter{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrVersionConflict
+	}
+	return nil
+}
+
+func (s *GormResourceStore) GetRoom(ctx context.Context, id uuid.UUID) (model.Room, error) {
+	var item model.Room
+	err := s.db.WithContext(ctx).First(&item, "id = ?", id).Error
+	return item, err
+}
+
+func (s *GormResourceStore) CountRacksByRoom(ctx context.Context, roomID uuid.UUID) (int64, error) {
+	var count int64
+	err := s.db.WithContext(ctx).Model(&model.Rack{}).Where("room_id = ?", roomID).Count(&count).Error
+	return count, err
+}
+
+func (s *GormResourceStore) CreateRoom(ctx context.Context, item *model.Room) error {
+	return s.db.WithContext(ctx).Create(item).Error
+}
+
+func (s *GormResourceStore) UpdateRoom(ctx context.Context, item *model.Room, expectedVersion uint) error {
+	updates := roomUpdateValues(item)
+	result := s.db.WithContext(ctx).Model(&model.Room{}).
+		Where("id = ? AND version = ?", item.ID, expectedVersion).Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrVersionConflict
+	}
+	item.Version = expectedVersion + 1
+	return nil
+}
+
+func roomUpdateValues(item *model.Room) map[string]interface{} {
+	return map[string]interface{}{
+		"code": item.Code, "name": item.Name, "building": item.Building, "floor": item.Floor,
+		"room_number": item.RoomNumber, "area_square_meters": item.AreaSquareMeters,
+		"clear_height_meters": item.ClearHeightMeters, "purpose": item.Purpose, "status": item.Status,
+		"environment_level": item.EnvironmentLevel, "max_load_kg": item.MaxLoadKg,
+		"cooling_capacity_kw": item.CoolingCapacityKw, "design_power_kw": item.DesignPowerKw,
+		"available_power_kw": item.AvailablePowerKw, "used_power_kw": item.UsedPowerKw,
+		"redundancy_policy": item.RedundancyPolicy, "manager": item.Manager, "contact": item.Contact,
+		"open_hours": item.OpenHours, "access_notes": item.AccessNotes,
+		"floor_plan_enabled": item.FloorPlanEnabled, "floor_plan_format": item.FloorPlanFormat,
+		"racks_per_row": item.RacksPerRow, "remarks": item.Remarks, "sort_order": item.SortOrder,
+		"version": gorm.Expr("version + 1"), "updated_at": time.Now().UTC(),
+	}
+}
+
+func (s *GormResourceStore) MoveRoomHierarchy(ctx context.Context, item *model.Room, expectedVersion uint) error {
+	result := s.db.WithContext(ctx).Model(&model.Room{}).
+		Where("id = ? AND version = ?", item.ID, expectedVersion).
+		Updates(map[string]interface{}{
+			"data_center_id": item.DataCenterID,
+			"code":           item.Code,
+			"version":        gorm.Expr("version + 1"),
+			"updated_at":     time.Now().UTC(),
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrVersionConflict
+	}
+	if err := s.db.WithContext(ctx).Model(&model.Rack{}).
+		Where("room_id = ?", item.ID).
+		Updates(map[string]interface{}{
+			"data_center_id": item.DataCenterID,
+			"version":        gorm.Expr("version + 1"),
+			"updated_at":     time.Now().UTC(),
+		}).Error; err != nil {
+		return err
+	}
+	if err := s.db.WithContext(ctx).Model(&model.RackDevicePosition{}).
+		Where("room_id = ?", item.ID).
+		Updates(map[string]interface{}{
+			"data_center_id": item.DataCenterID,
+			"updated_at":     time.Now().UTC(),
+		}).Error; err != nil {
+		return err
+	}
+	item.Version = expectedVersion + 1
+	return nil
+}
+
+func (s *GormResourceStore) DeleteRoom(ctx context.Context, id uuid.UUID, expectedVersion uint) error {
+	result := s.db.WithContext(ctx).Where("id = ? AND version = ?", id, expectedVersion).Delete(&model.Room{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrVersionConflict
+	}
+	return nil
+}
+
+func (s *GormResourceStore) GetRack(ctx context.Context, id uuid.UUID) (model.Rack, error) {
+	var item model.Rack
+	err := s.db.WithContext(ctx).First(&item, "id = ?", id).Error
+	return item, err
+}
+
+func (s *GormResourceStore) CountDevicePositionsByRack(ctx context.Context, rackID uuid.UUID) (int64, error) {
+	var count int64
+	err := s.db.WithContext(ctx).Model(&model.RackDevicePosition{}).Where("rack_id = ?", rackID).Count(&count).Error
+	return count, err
+}
+
+func (s *GormResourceStore) CreateRack(ctx context.Context, item *model.Rack) error {
+	return s.db.WithContext(ctx).Create(item).Error
+}
+
+func (s *GormResourceStore) UpdateRack(ctx context.Context, item *model.Rack, expectedVersion uint) error {
+	updates := rackUpdateValues(item)
+	result := s.db.WithContext(ctx).Model(&model.Rack{}).
+		Where("id = ? AND version = ?", item.ID, expectedVersion).Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrVersionConflict
+	}
+	item.Version = expectedVersion + 1
+	return nil
+}
+
+func rackUpdateValues(item *model.Rack) map[string]interface{} {
+	return map[string]interface{}{
+		"code": item.Code, "name": item.Name, "type": item.Type,
+		"manufacturer": item.Manufacturer, "model_number": item.ModelNumber,
+		"serial_number": item.SerialNumber, "asset_number": item.AssetNumber,
+		"u_height": item.UHeight, "width_mm": item.WidthMm, "depth_mm": item.DepthMm,
+		"height_mm": item.HeightMm, "load_capacity_kg": item.LoadCapacityKg,
+		"zone": item.Zone, "rack_row": item.RackRow, "rack_column": item.RackColumn,
+		"aisle": item.Aisle, "x_coordinate": item.XCoordinate, "y_coordinate": item.YCoordinate,
+		"rotation": item.Rotation, "status": item.Status, "manager": item.Manager,
+		"department": item.Department, "purpose": item.Purpose, "dual_power": item.DualPower,
+		"input_circuits": item.InputCircuits, "rated_voltage": item.RatedVoltage,
+		"rated_current": item.RatedCurrent, "rated_power_kw": item.RatedPowerKw,
+		"peak_power_kw": item.PeakPowerKw, "pdu_count": item.PDUCount,
+		"remarks": item.Remarks, "sort_order": item.SortOrder,
+		"version": gorm.Expr("version + 1"), "updated_at": time.Now().UTC(),
+	}
+}
+
+func (s *GormResourceStore) MoveRackHierarchy(ctx context.Context, item *model.Rack, expectedVersion uint) error {
+	result := s.db.WithContext(ctx).Model(&model.Rack{}).
+		Where("id = ? AND version = ?", item.ID, expectedVersion).
+		Updates(map[string]interface{}{
+			"data_center_id": item.DataCenterID,
+			"room_id":        item.RoomID,
+			"code":           item.Code,
+			"x_coordinate":   item.XCoordinate,
+			"y_coordinate":   item.YCoordinate,
+			"sort_order":     item.SortOrder,
+			"version":        gorm.Expr("version + 1"),
+			"updated_at":     time.Now().UTC(),
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrVersionConflict
+	}
+	if err := s.db.WithContext(ctx).Model(&model.RackDevicePosition{}).
+		Where("rack_id = ?", item.ID).
+		Updates(map[string]interface{}{
+			"room_id":        item.RoomID,
+			"data_center_id": item.DataCenterID,
+			"updated_at":     time.Now().UTC(),
+		}).Error; err != nil {
+		return err
+	}
+	item.Version = expectedVersion + 1
+	return nil
+}
+
+func (s *GormResourceStore) DeleteRack(ctx context.Context, id uuid.UUID, expectedVersion uint) error {
+	result := s.db.WithContext(ctx).Where("id = ? AND version = ?", id, expectedVersion).Delete(&model.Rack{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrVersionConflict
+	}
+	return nil
+}
+
+func (s *GormResourceStore) CreateAuditLog(ctx context.Context, log *model.AuditLog) error {
+	return s.db.WithContext(ctx).Create(log).Error
+}

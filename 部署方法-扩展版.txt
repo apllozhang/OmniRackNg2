@@ -1,0 +1,52 @@
+IT 基础设施管理平台 0.2.0-preview.8：联网一键部署
+
+适用：Linux 服务器，已安装并启动 Docker Engine、Docker Compose v2。
+首次需要联网拉取 Docker 基础镜像、Go 模块、npm 依赖。本包不包含离线 Docker 镜像。
+这是预览验收版，尚未完成真实 Docker/PostgreSQL、LDAP 和手机相机联调；先在测试环境验收。
+
+1、首次部署
+将 cabinet-it-assets-0.2.0-preview.8-online.tar.gz 上传服务器，进入空目录执行：
+
+tar -xzf cabinet-it-assets-0.2.0-preview.8-online.tar.gz
+cd cabinet-it-assets-0.2.0-preview.8
+bash deploy.sh
+
+默认访问：http://服务器IP:15174
+例如仍用原服务器： http://172.21.153.246:15174
+默认监听 0.0.0.0:15174，可被服务器网络访问。请仅向办公网开放该端口；不开放 PostgreSQL 端口。
+首次登录信息在服务器本地查看：
+grep -E '^ADMIN_(USERNAME|PASSWORD)=' .env
+
+不再使用原来的固定弱密码。首次部署随机生成密码和 JWT 密钥，.env 权限为 600。
+重复运行 bash deploy.sh 会重建、重启本扩展服务，保留 .env 和数据卷，期间有短暂中断。
+数据库中已有管理员时，修改 .env 的 ADMIN_PASSWORD 不会重置该账号密码。
+
+2、与旧版并行运行
+新项目固定使用 Compose 项目名 cabinet-assets-preview，端口 15174，数据库使用该项目独立数据卷。
+原版 5173 和原数据库不会被部署脚本修改。不会自动复制旧资产，本版初次部署是空库。
+请勿把本包解压进原部署目录，也不要使用 --overwrite 覆盖旧版。
+后续如要迁移旧数据，先备份并在测试库验证，再安排切换。
+
+3、修改监听地址或端口
+部署前可复制 .env.asset.example 为 .env，设置三个随机密码/密钥以及 ASSET_HTTP_BIND、ASSET_HTTP_PORT。
+示例文件默认 127.0.0.1，仅供本机或反向代理访问；一键初始化默认 0.0.0.0，供办公网直接访问。
+已有 .env 时脚本不会修改这些配置；修改后再运行 bash deploy.sh。
+如镜像或依赖下载失败，检查服务器联网/代理设置，再次执行即可。
+手机相机扫码应通过受信任的 HTTPS 访问；HTTP 内网地址可以验证页面和手工输入，不能保证浏览器相机可用。
+
+4、查看状态、日志、停止
+以下命令均在本扩展目录执行：
+docker compose --env-file .env -p cabinet-assets-preview -f compose.assets.yml ps
+docker compose --env-file .env -p cabinet-assets-preview -f compose.assets.yml logs --tail=100
+docker compose --env-file .env -p cabinet-assets-preview -f compose.assets.yml stop
+docker compose --env-file .env -p cabinet-assets-preview -f compose.assets.yml start
+
+不要执行 down -v 或删除数据卷，否则会删除本版数据库。
+
+5、完整备份和恢复
+原部署文档里的数据库 dump 不包含 .env、配置及业务文件，不能代替完整备份。
+本版已提供 scripts/backup-assets.sh、scripts/restore-assets.sh，完整步骤见 docs/资产扩展说明.md 的备份恢复部分。
+完整备份另外需要 gpg、python3、tar、flock；备份口令文件需独立保存并设置 600 或 400 权限。
+必须在独立测试环境验证恢复后，再用于真实数据。恢复会替换目标环境的数据，不能直接对旧版执行。
+
+
