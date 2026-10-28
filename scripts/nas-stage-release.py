@@ -244,7 +244,10 @@ def build_image(component, version, base_id, stage, source_hash, commit):
     (context / 'Dockerfile').write_text(dockerfile)
     tag = image_spec(component, version, '')['tag']
     ensure_unused_tag(tag)
-    release.run(['docker', 'build', '--pull=false', '-t', tag, str(context)])
+    build = subprocess.run(['docker', 'build', '--pull=false', '-t', tag, str(context)], capture_output=True, text=True)
+    (context / 'build.log').write_text(build.stdout + build.stderr)
+    (context / 'build.log').chmod(0o600)
+    release.require(build.returncode == 0, 'Docker build failed; inspect private staging runtime/' + component + '/build.log')
     release.require(release.image_id(base_tag) == base_id, 'base tag changed during build')
     built = inspect(tag)
     layers = base['RootFS']['Layers']

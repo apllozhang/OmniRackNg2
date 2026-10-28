@@ -3,7 +3,7 @@ import (
  "fmt"
  "os"
  "sync"
- "omnirack-replica/backend/internal/model"
+ "github.com/example/cabinet-management-tool/internal/model"
  "gorm.io/driver/postgres"
  "gorm.io/gorm"
  "gorm.io/gorm/schema"

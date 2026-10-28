@@ -62,8 +62,8 @@ def compare_original(root, original):
                 omitted.append(relative)
             elif relative not in current:
                 target = RELOCATED.get(relative)
-                if target in current and current[target] == sha256(archive.read(entry)):
-                    relocated.append({"original": relative, "current": target, "reason": "Preserved as inert diagnostic source; excluded from executable builds."})
+                if target in current and (Path(root) / target).read_bytes().replace(b"\r\n", b"\n") == archive.read(entry).replace(b"\r\n", b"\n"):
+                    relocated.append({"original": relative, "current": target, "original_sha256": sha256(archive.read(entry)), "current_sha256": current[target], "reason": "Original diagnostic preserved as inert text, with CRLF normalized to LF; excluded from executable builds."})
                 else:
                     missing.append(relative)
             elif current[relative] == sha256(archive.read(entry)):
