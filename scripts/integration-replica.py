@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import shutil
 import socket
 import subprocess
 import tempfile
@@ -38,6 +39,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--browser", action="store_true", help="also run real-API Playwright page tests")
     parser.add_argument("--business-workflows", action="store_true", help="run additional business loops (see reported group coverage)")
+    parser.add_argument("--browser-grep", help="Optional Playwright title filter; recorded as partial browser coverage")
     args = parser.parse_args()
     if (args.pg_image or args.browser_image) and os.uname().sysname != "Linux":
         parser.error("Docker test mode requires Linux host networking; use --pg-bin on other hosts")
@@ -242,6 +244,8 @@ def main():
                     raise RuntimeError("frontend did not become ready")
                 with (args.output / "playwright.log").open("wb") as browser_log:
                     command = ["node", "node_modules/@playwright/test/cli.js", "test", "--project=live-smoke", "--workers=1"]
+                    if args.browser_grep:
+                        command.extend(["--grep", args.browser_grep])
                     if args.browser_image:
                         docker = ["docker", "run", "--rm", "--network", "host", "--shm-size=256m",
                                   "--user", f"{os.getuid()}:{os.getgid()}", "--env", "HOME=/tmp", "--volume", f"{root}:/work",
@@ -249,12 +253,20 @@ def main():
                         for key in ["E2E_LIVE", "E2E_USERNAME", "E2E_PASSWORD", "PLAYWRIGHT_BASE_URL", "API_PROXY_TARGET", "E2E_FIXTURE_SCOPE"]:
                             docker.extend(["--env", key])
                         command = docker + [args.browser_image] + command
-                    subprocess.run(command, cwd=root / "frontend", env=browser_env,
-                                   stdout=browser_log, stderr=browser_log, check=True, timeout=600)
+                    try:
+                        subprocess.run(command, cwd=root / "frontend", env=browser_env,
+                                       stdout=browser_log, stderr=browser_log, check=True, timeout=600)
+                    finally:
+                        for name in ["test-results", "playwright-report"]:
+                            source = root / "frontend" / name
+                            if source.is_dir():
+                                shutil.copytree(source, args.output / "browser-artifacts" / name)
+
             report = {"passed": True, "checks": checks, "request_count": len(checks),
                       "scope": "Owned disposable loopback PostgreSQL 16 + newly built native backend; no existing instances or data",
                       "postgres_mode": "docker-tmpfs" if args.pg_image else "temporary-native-cluster",
                       "postgres_invariants": args.go_invariants, "business_workflow_groups": business_results,
+                      "browser_title_filter": args.browser_grep,
                       "browser_mode": "docker" if args.browser_image else ("host" if args.browser else "not-run"),
                       "limitations": ["Not exhaustive: real SMTP, LDAP and camera hardware are not exercised."]}
             (args.output / "result.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")

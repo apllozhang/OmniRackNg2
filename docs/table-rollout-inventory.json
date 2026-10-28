@@ -9,7 +9,9 @@
     ],
     "pagination_tags": 0,
     "status": "client sorting/paging and keyboard resize implemented; 61-row component verification; full visual acceptance pending",
-    "shared_pager_tags": 1
+    "shared_pager_tags": 1,
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/components/AssetAuditPanel.vue",
@@ -22,43 +24,52 @@
     "pagination_tags": 0,
     "status": "server whitelist sorting, search, variable page size and stable ID tie-break implemented; 61-row PostgreSQL handler verification and real authenticated browser/export verification; broad visual acceptance pending",
     "shared_pager_tags": 1,
-    "sort_exceptions": "Current operator-name mapping and composite before/after JSON are not scalar audit snapshots; these columns remain unsorted. Request ID is exposed as a sortable column."
+    "sort_exceptions": "Current operator-name mapping and composite before/after JSON are not scalar audit snapshots; these columns remain unsorted. Request ID is exposed as a sortable column.",
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
-    "file": "frontend/src/components/PDUManager.vue",
+    "file": "frontend/src/components/PDUSocketTable.vue",
     "tables": [
       {
-        "line": 1,
-        "tag": "<el-table :data=\"pdu.sockets || []\" size=\"small\" border empty-text=\"暂无插座\">"
+        "line": 20,
+        "tag": "<el-table :max-height=\"300\" :data=\"pageRows\" ref=\"tableRef\" @sort-change=\"onSortChange\" :aria-busy=\"search!==query\" size=\"small\" border empty-text=\"暂无匹配插座\">"
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited",
-    "shared_pager_tags": 0
+    "status": "complete-collection sorting before pagination and keyboard column resize implemented; targeted component verification; visual matrix in progress",
+    "shared_pager_tags": 1,
+    "parent": "frontend/src/components/PDUManager.vue",
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/components/RackDiagramImportDialog.vue",
     "tables": [
       {
-        "line": 82,
-        "tag": "<el-table :data=\"validation.items\" border max-height=\"470\" row-key=\"id\" class=\"validation-table\">"
+        "line": 83,
+        "tag": "<el-table :data=\"pageRows\" ref=\"tableRef\" @sort-change=\"onSortChange\" :aria-busy=\"busy||search!==query\" border max-height=\"470\" row-key=\"id\" class=\"validation-table\">"
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited",
-    "shared_pager_tags": 0
+    "status": "complete-collection sorting before pagination and keyboard column resize implemented; targeted component verification; visual matrix in progress",
+    "shared_pager_tags": 1,
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/components/BatchImportDialog.vue",
     "tables": [
       {
         "line": 23,
-        "tag": "<el-table v-loading=\"parsing\" :data=\"previewRows\" stripe height=\"420px\">"
+        "tag": "<el-table v-loading=\"parsing\" :data=\"pageRows\" ref=\"tableRef\" @sort-change=\"onSortChange\" :aria-busy=\"importing||parsing||search!==query\" stripe height=\"420px\">"
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited",
-    "shared_pager_tags": 0
+    "status": "complete-collection sorting before pagination and keyboard column resize implemented; targeted component verification; visual matrix in progress",
+    "shared_pager_tags": 1,
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/views/SparePartsView.vue",
@@ -83,7 +94,9 @@
     "pagination_tags": 0,
     "status": "four client tables implemented: stocks, room summary, specs, minimum rules; real Element and real browser61-row sorting/paging/search verified; stock/summary complete sorted exports verified; label selections clear across page/filter/sort; full form choices retained; broad visual acceptance pending",
     "shared_pager_tags": 4,
-    "export_semantics": "Stock and summary export complete sorted filtered results, never the page. History export uses complete child sorted collection and retains transfer source/destination interpretation."
+    "export_semantics": "Stock and summary export complete sorted filtered results, never the page. History export uses complete child sorted collection and retains transfer source/destination interpretation.",
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/views/AssetRemindersView.vue",
@@ -95,7 +108,9 @@
     ],
     "pagination_tags": 0,
     "status": "client sorting/paging/search and keyboard resize implemented; real Element component verification; full visual acceptance pending",
-    "shared_pager_tags": 1
+    "shared_pager_tags": 1,
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/views/ApprovalCenterView.vue",
@@ -107,7 +122,9 @@
     ],
     "pagination_tags": 0,
     "status": "complete server-filtered collection client sorting/search/paging with LWW fetch guard; Element61 and authenticated browser61 decisions on page2 preserve record/version and actual position execution/rejection; full visual acceptance pending",
-    "shared_pager_tags": 1
+    "shared_pager_tags": 1,
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/views/AssetChecksView.vue",
@@ -124,7 +141,9 @@
     "pagination_tags": 0,
     "status": "two client tables implemented: check lines and discoveries; independent sorting/paging/search, task scope retained for scanning and full exports; real Element and real browser61 lines/61 findings, two full Excel exports under filters, off-display scan confirmed via HTTP; broad visual acceptance pending",
     "shared_pager_tags": 2,
-    "export_semantics": "Export explicitly includes all task records in current sort, regardless of display filters/pages. Scanner matching always uses complete task snapshot."
+    "export_semantics": "Export explicitly includes all task records in current sort, regardless of display filters/pages. Scanner matching always uses complete task snapshot.",
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/views/AdminView.vue",
@@ -137,7 +156,9 @@
     "pagination_tags": 0,
     "status": "complete server-filtered user collection client sorting/paging and debounced search/source refresh; Element61 and authenticated browser61 mutation identity verified; editor captures opening version instead of borrowing refreshed list version; full visual acceptance pending",
     "shared_pager_tags": 1,
-    "sort_semantics": "Role combination sorted by sorted role-name set; source/enabled map to displayed labels; last login parsed as timestamp, empty last."
+    "sort_semantics": "Role combination sorted by sorted role-name set; source/enabled map to displayed labels; last login parsed as timestamp, empty last.",
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/views/NotificationDeliveriesView.vue",
@@ -150,47 +171,55 @@
     "pagination_tags": 0,
     "status": "server whitelist sorting, search, variable page size and stable ID tie-break implemented; 61-row real PostgreSQL handler verification and Element view tests; browser route load verified, data-rich visual acceptance pending",
     "shared_pager_tags": 1,
-    "sort_exceptions": "Combined recipient list/message identifier column is multi-valued; searched but no ambiguous combined sort."
+    "sort_exceptions": "Combined recipient list/message identifier column is multi-valued; searched but no ambiguous combined sort.",
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/views/RackManagementView.vue",
     "tables": [
       {
         "line": 75,
-        "tag": "<el-table v-else :data=\"pagedRows\" stripe table-layout=\"fixed\">"
+        "tag": "<el-table v-else :data=\"rackPageRows\" ref=\"rackTable\" @sort-change=\"onRackSortChange\" stripe table-layout=\"fixed\">"
       }
     ],
     "pagination_tags": 1,
-    "status": "not yet remediated/audited",
-    "shared_pager_tags": 0
+    "status": "complete-collection sorting before pagination and keyboard column resize implemented; targeted component verification; visual matrix in progress",
+    "shared_pager_tags": 0,
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/views/AssetOperationsView.vue",
     "tables": [
       {
-        "line": 27,
-        "tag": "<el-table :data=\"filtered\" @selection-change=\"selected=$event\" row-key=\"device.id\">"
+        "line": 41,
+        "tag": "<el-table :data=\"assetRows\" ref=\"assetTable\" @sort-change=\"onAssetSortChange\" @selection-change=\"selected=$event\" row-key=\"device.id\">"
       },
       {
-        "line": 28,
-        "tag": "<el-table :data=\"current?.components||[]\">"
+        "line": 42,
+        "tag": "<el-table :data=\"componentRows\" ref=\"componentTable\" @sort-change=\"onComponentSortChange\">"
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited",
-    "shared_pager_tags": 0
+    "status": "complete-collection sorting before pagination and keyboard column resize implemented; targeted component verification; visual matrix in progress",
+    "shared_pager_tags": 2,
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/views/ResourceManagementView.vue",
     "tables": [
       {
         "line": 86,
-        "tag": "<el-table v-else :data=\"racks\" size=\"small\" stripe>"
+        "tag": "<el-table v-else :data=\"resourceRackRows\" ref=\"resourceRackTable\" @sort-change=\"onResourcerackSortChange\" size=\"small\" stripe>"
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited",
-    "shared_pager_tags": 0
+    "status": "complete-collection sorting before pagination and keyboard column resize implemented; targeted component verification; visual matrix in progress",
+    "shared_pager_tags": 1,
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/views/PCAssetsView.vue",
@@ -202,7 +231,9 @@
     ],
     "pagination_tags": 2,
     "status": "terminal functional pilot verified: real63-row fixture with combined type/status/site filters, empty reset, selected Excel1-row export and page-size50, prior keyboard width/full export61 verified; complete narrow/theme and broader role/operation acceptance remain",
-    "shared_pager_tags": 0
+    "shared_pager_tags": 0,
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/views/RackTemplateView.vue",
@@ -214,7 +245,9 @@
     ],
     "pagination_tags": 0,
     "status": "client sorting/paging/search and keyboard resize implemented; real Element numeric specification/revision verification; full visual acceptance pending",
-    "shared_pager_tags": 1
+    "shared_pager_tags": 1,
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/views/AssetLocationsView.vue",
@@ -226,7 +259,9 @@
     ],
     "pagination_tags": 0,
     "status": "client sorting/paging/search and keyboard resize implemented; 61-row component and actual browser verification; 375px light/dark screenshots and no document overflow verified in browser-05; full width/role acceptance pending",
-    "shared_pager_tags": 1
+    "shared_pager_tags": 1,
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   },
   {
     "file": "frontend/src/views/DeviceManagementView.vue",
@@ -243,6 +278,8 @@
     "pagination_tags": 1,
     "status": "ledger: repository/service whitelist sorting before server pagination, debounced filtering, stable IDs and empty values last; device types: full-collection client sorting/paging/search; real PG61, Element61 and real browser61/export/cross-page selection verified; broad visual acceptance pending",
     "shared_pager_tags": 1,
-    "sort_exceptions": "Selection and actions unsorted; position uses rack name/code and numeric U range; IP uses textual database order. Form type choices retain full scoped collection."
+    "sort_exceptions": "Selection and actions unsorted; position uses rack name/code and numeric U range; IP uses textual database order. Form type choices retain full scoped collection.",
+    "visual_evidence": "See docs/表格视觉验收矩阵.md; fixed themes/viewports, not exhaustive states",
+    "current_acceptance": "controls implemented; fixed dual-theme/320-768-1440 visual scenarios verified; see visual matrix for precise coverage and external review gate"
   }
 ]

@@ -130,3 +130,20 @@ describe('RackDiagramImportDialog', () => {
     wrapper.unmount()
   })
 })
+
+it('requires and submits decisions from all 61 rows even when the preview hides them',async()=>{
+ const items=Array.from({length:61},(_,i)=>({...decisionItem,id:`item-${i+1}`,name:`设备${i+1}`}))
+ mocks.validateRackDiagramImport.mockResolvedValue(result(items))
+ const wrapper=await mountDialog();await chooseAndValidate(wrapper)
+ const vm=wrapper.vm as any
+ for(let i=1;i<=60;i++)vm.decisions[`item-${i}`]='UPDATE_EXISTING'
+ vm.search='设备1';await new Promise(r=>setTimeout(r,350));await flushPromises()
+ expect(commitButton(wrapper).attributes('disabled')).toBeDefined()
+ vm.decisions['item-61']='CREATE_NEW';await flushPromises()
+ expect(commitButton(wrapper).attributes('disabled')).toBeUndefined()
+ await commitButton(wrapper).trigger('click');await flushPromises()
+ const payload=mocks.commitRackDiagramImport.mock.calls[mocks.commitRackDiagramImport.mock.calls.length-1]?.[1]
+ expect(payload.decisions).toHaveLength(61)
+ expect(payload.decisions[60]).toEqual({itemId:'item-61',action:'CREATE_NEW'})
+ wrapper.unmount()
+})

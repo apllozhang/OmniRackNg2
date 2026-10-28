@@ -1,5 +1,5 @@
 <template>
-  <el-dialog :model-value="modelValue" :title="title" width="980px" destroy-on-close :close-on-click-modal="!importing" @update:model-value="emit('update:modelValue', $event)">
+  <el-dialog class="batch-import-dialog" :model-value="modelValue" :title="title" width="980px" destroy-on-close :close-on-click-modal="!importing" :close-on-press-escape="!importing" :show-close="!importing" @update:model-value="emit('update:modelValue', $event)">
     <el-alert :title="description" type="info" :closable="false" show-icon class="import-alert" />
     <div class="import-toolbar">
       <el-button type="primary" plain @click="downloadTemplate">下载 Excel 导入模板</el-button>
@@ -19,20 +19,20 @@
 
     <el-empty v-if="!rows.length && !parsing" description="请下载模板填写后，选择 Excel 文件进行校验" />
     <template v-else>
-      <el-alert v-if="rows.length > previewLimit" :title="`为保证页面流畅，仅预览前 ${previewLimit} 行；全部 ${rows.length} 行仍会参与校验和导入。`" type="warning" :closable="false" class="preview-alert" />
-      <el-table v-loading="parsing" :data="previewRows" stripe height="420px">
-        <el-table-column prop="rowNumber" label="Excel 行" width="90" />
-                <el-table-column prop="summary" label="数据标识" min-width="260" show-overflow-tooltip />
-        <el-table-column label="操作" width="90">
+      <el-alert title="分页和搜索仅影响预览；完整数据仍参与校验与导入。" type="info" :closable="false"/>
+      <el-input v-model="search" clearable :disabled="importing||parsing" aria-label="搜索批量导入预览" placeholder="搜索批量导入预览" style="max-width:360px;margin:12px 0"/><el-table v-loading="parsing" :data="pageRows" ref="tableRef" @sort-change="onSortChange" :aria-busy="importing||parsing||search!==query" stripe height="420px">
+        <el-table-column label="Excel 行"  prop="rowNumber" sortable="custom" :width="columnWidths['rowNumber']"><template #header><TableSortHeader label="Excel 行" :width="columnWidths['rowNumber']" @sort="sortBy('rowNumber')" @resize="resizeColumn('rowNumber',$event)"/></template></el-table-column>
+                <el-table-column label="数据标识" show-overflow-tooltip  prop="summary" sortable="custom" :width="columnWidths['summary']"><template #header><TableSortHeader label="数据标识" :width="columnWidths['summary']" @sort="sortBy('summary')" @resize="resizeColumn('summary',$event)"/></template></el-table-column>
+        <el-table-column label="操作" prop="operationLabel" sortable="custom" :width="columnWidths['operationLabel']"><template #header><TableSortHeader label="操作" :width="columnWidths['operationLabel']" @sort="sortBy('operationLabel')" @resize="resizeColumn('operationLabel',$event)"/></template>
           <template #default="{ row }"><el-tag :type="row.operation === 'UPDATE' ? 'warning' : 'success'">{{ row.operation === 'UPDATE' ? '更新' : '新增' }}</el-tag></template>
         </el-table-column>
-        <el-table-column label="状态" width="105">
+        <el-table-column label="状态" prop="statusLabel" sortable="custom" :width="columnWidths['statusLabel']"><template #header><TableSortHeader label="状态" :width="columnWidths['statusLabel']" @sort="sortBy('statusLabel')" @resize="resizeColumn('statusLabel',$event)"/></template>
           <template #default="{ row }"><el-tag :type="statusType(row)">{{ statusLabel(row) }}</el-tag></template>
         </el-table-column>
-        <el-table-column label="说明" min-width="420" show-overflow-tooltip>
+        <el-table-column label="说明" show-overflow-tooltip prop="message" sortable="custom" :width="columnWidths['message']"><template #header><TableSortHeader label="说明" :width="columnWidths['message']" @sort="sortBy('message')" @resize="resizeColumn('message',$event)"/></template>
           <template #default="{ row }"><span :class="{ 'danger-text': row.errors.length || row.importError }">{{ row.errors.join('；') || row.importError || '校验通过，可以导入' }}</span></template>
         </el-table-column>
-      </el-table>
+      </el-table><TablePager v-model:page="page" v-model:page-size="pageSize" :total="total" label="批量导入预览"/>
     </template>
 
     <template #footer>
@@ -45,6 +45,12 @@
 </template>
 
 <script setup lang="ts">
+import TableSortHeader from '@/components/TableSortHeader.vue'
+import TablePager from '@/components/TablePager.vue'
+import {useClientTable} from '@/features/table/useClientTable'
+import {useColumnWidths} from '@/features/table/useColumnWidths'
+import {useDebouncedValue} from '@/features/table/useTableView'
+
 import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { UploadFile } from 'element-plus'
@@ -74,8 +80,8 @@ const rows = ref<RuntimeRow[]>([])
 const fileName = ref('')
 const parsing = ref(false)
 const importing = ref(false)
-const previewLimit = 200
-const previewRows = computed(() => rows.value.slice(0, previewLimit))
+const search=ref(''),query=useDebouncedValue(search)
+const previewRows = computed(() => rows.value.filter(row=>!query.value.trim()||[row.rowNumber,row.summary,row.errors.join('；'),row.importError].some(value=>String(value||'').toLowerCase().includes(query.value.trim().toLowerCase()))))
 const validCount = computed(() => rows.value.filter((row) => !row.errors.length).length)
 const invalidCount = computed(() => rows.value.filter((row) => row.errors.length).length)
 const successCount = computed(() => rows.value.filter((row) => row.status === 'success').length)
@@ -169,9 +175,14 @@ function statusType(row: RuntimeRow) {
   if (row.status === 'importing') return 'warning'
   return 'info'
 }
+const {page,pageSize,total,pageRows,tableRef,sortBy,onSortChange}=useClientTable(previewRows,{operationLabel:row=>row.operation==='UPDATE'?'更新':'新增',statusLabel:row=>statusLabel(row),message:row=>row.errors.join('；')||row.importError||'校验通过，可以导入'})
+const {columnWidths,resizeColumn}=useColumnWidths({"rowNumber": 110, "summary": 260, "operationLabel": 110, "statusLabel": 110, "message": 420})
 </script>
 
 <style scoped>
-.import-alert,.preview-alert{margin-bottom:14px}.import-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}.file-name{max-width:320px;color:#606266;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.import-summary{margin-bottom:14px}.import-summary :deep(.el-card__body){display:flex;align-items:center;justify-content:space-between;padding:14px 16px}.import-summary span{color:var(--color-text-muted)}.import-summary strong{font-size:24px}.success-text{color:#16a34a}.danger-text{color:#dc2626}
+.import-alert,.preview-alert{margin-bottom:14px}.import-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}.file-name{max-width:320px;color:var(--el-text-color-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.import-summary{margin-bottom:14px}.import-summary :deep(.el-card__body){display:flex;align-items:center;justify-content:space-between;padding:14px 16px}.import-summary span{color:var(--color-text-muted)}.import-summary strong{font-size:24px}.success-text{color:#16a34a}.danger-text{color:#dc2626}
+@media(max-width:600px){.import-summary :deep(.el-col){flex:0 0 50%;max-width:50%;margin-bottom:8px}.import-summary :deep(.el-card__body){padding:10px;gap:8px}.import-summary strong{font-size:20px}}
+:global(.batch-import-dialog){display:flex;flex-direction:column;max-height:90vh;margin-top:5vh;max-width:95vw}
+:global(.batch-import-dialog .el-dialog__body){min-height:0;overflow-y:auto}
 </style>
 

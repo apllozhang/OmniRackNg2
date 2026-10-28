@@ -5,10 +5,10 @@
       <div class="actions"><el-button :loading="loading" @click="refreshAll">刷新</el-button><el-button :disabled="total >= 3000 || !activeTypes.length" :loading="deviceImportLoading" @click="openDeviceImport">批量导入</el-button><el-button :disabled="deviceLoading" :loading="deviceExportLoading" @click="openDeviceExport">导出设备信息</el-button><el-button type="primary" :disabled="total >= 3000" @click="openDevice()">新增设备</el-button></div>
     </div>
     <el-row v-if="scope!=='PC'" :gutter="16" class="summary-row">
-      <el-col :span="6"><el-card shadow="never"><div class="summary"><span>设备总数</span><strong>{{ total }}</strong><small>/ 3000</small></div></el-card></el-col>
-      <el-col :span="6"><el-card shadow="never"><div class="summary"><span>当前页已上架</span><strong>{{ devices.filter(i => i.currentPosition).length }}</strong></div></el-card></el-col>
-      <el-col :span="6"><el-card shadow="never"><div class="summary"><span>设备类型</span><strong>{{ types.length }}</strong></div></el-card></el-col>
-      <el-col :span="6"><el-card shadow="never"><div class="summary"><span>未上架设备</span><strong>{{ devices.filter(i => !i.currentPosition).length }}</strong></div></el-card></el-col>
+      <el-col :xs="12" :sm="12" :md="6"><el-card shadow="never"><div class="summary"><span>设备总数</span><strong>{{ total }}</strong><small>/ 3000</small></div></el-card></el-col>
+      <el-col :xs="12" :sm="12" :md="6"><el-card shadow="never"><div class="summary"><span>当前页已上架</span><strong>{{ devices.filter(i => i.currentPosition).length }}</strong></div></el-card></el-col>
+      <el-col :xs="12" :sm="12" :md="6"><el-card shadow="never"><div class="summary"><span>设备类型</span><strong>{{ types.length }}</strong></div></el-card></el-col>
+      <el-col :xs="12" :sm="12" :md="6"><el-card shadow="never"><div class="summary"><span>未上架设备</span><strong>{{ devices.filter(i => !i.currentPosition).length }}</strong></div></el-card></el-col>
     </el-row>
 
     <el-card shadow="never">

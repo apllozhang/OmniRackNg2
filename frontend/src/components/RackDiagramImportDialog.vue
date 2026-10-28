@@ -5,6 +5,7 @@
     width="min(1180px, 94vw)"
     append-to-body
     destroy-on-close
+    :close-on-click-modal="!busy" :close-on-press-escape="!busy" :show-close="!busy"
     class="rack-diagram-import-dialog"
     @close="closeDialog"
   >
@@ -25,7 +26,7 @@
         </el-select>
       </el-form-item>
       <div class="file-control">
-        <input ref="fileInput" class="native-file-input" type="file" accept=".xlsx" @change="selectFile">
+        <input ref="fileInput" class="native-file-input" type="file" accept=".xlsx" :disabled="busy" @change="selectFile">
         <el-button :disabled="busy" @click="fileInput?.click()">选择机柜图</el-button>
         <span :class="{ muted: !fileName }">{{ fileName || '尚未选择文件' }}</span>
       </div>
@@ -79,25 +80,25 @@
         class="import-alert"
       />
 
-      <el-table :data="validation.items" border max-height="470" row-key="id" class="validation-table">
-        <el-table-column label="状态" width="108" fixed="left">
+      <el-input v-model="search" clearable :disabled="busy" aria-label="搜索机柜图校验预览" placeholder="搜索机柜图校验预览" style="max-width:360px;margin:12px 0"/><el-table :data="pageRows" ref="tableRef" @sort-change="onSortChange" :aria-busy="busy||search!==query" border max-height="470" row-key="id" class="validation-table">
+        <el-table-column label="状态" fixed="left" prop="kindLabel" sortable="custom" :width="columnWidths['kindLabel']"><template #header><TableSortHeader label="状态" :width="columnWidths['kindLabel']" @sort="sortBy('kindLabel')" @resize="resizeColumn('kindLabel',$event)"/></template>
           <template #default="scope">
             <el-tag :type="statusTagType(scope.row)" effect="dark">{{ statusLabel(scope.row.kind) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="目标位置" width="145">
+        <el-table-column label="目标位置" prop="positionLabel" sortable="custom" :width="columnWidths['positionLabel']"><template #header><TableSortHeader label="目标位置" :width="columnWidths['positionLabel']" @sort="sortBy('positionLabel')" @resize="resizeColumn('positionLabel',$event)"/></template>
           <template #default="scope">
             <span v-if="scope.row.rackCode">{{ scope.row.rackCode }} · {{ rangeLabel(scope.row) }}</span>
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="导入设备" min-width="190">
+        <el-table-column label="导入设备" prop="name" sortable="custom" :width="columnWidths['name']"><template #header><TableSortHeader label="导入设备" :width="columnWidths['name']" @sort="sortBy('name')" @resize="resizeColumn('name',$event)"/></template>
           <template #default="scope">
             <strong class="device-name">{{ scope.row.name || '-' }}</strong>
             <small>{{ importDeviceMeta(scope.row) }}</small>
           </template>
         </el-table-column>
-        <el-table-column label="匹配到的原设备" min-width="190">
+        <el-table-column label="匹配到的原设备" prop="existingDeviceName" sortable="custom" :width="columnWidths['existingDeviceName']"><template #header><TableSortHeader label="匹配到的原设备" :width="columnWidths['existingDeviceName']" @sort="sortBy('existingDeviceName')" @resize="resizeColumn('existingDeviceName',$event)"/></template>
           <template #default="scope">
             <template v-if="scope.row.existingDeviceId">
               <strong class="device-name">{{ scope.row.existingDeviceName || '-' }}</strong>
@@ -106,12 +107,12 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="message" label="校验说明" min-width="260" show-overflow-tooltip />
+        <el-table-column label="校验说明" show-overflow-tooltip  prop="message" sortable="custom" :width="columnWidths['message']"><template #header><TableSortHeader label="校验说明" :width="columnWidths['message']" @sort="sortBy('message')" @resize="resizeColumn('message',$event)"/></template></el-table-column>
         <el-table-column label="人工确认" width="235" fixed="right">
           <template #default="scope">
             <el-select
               v-if="scope.row.requiresDecision"
-              v-model="decisions[scope.row.id]"
+              v-model="decisions[scope.row.id]" :disabled="busy"
               placeholder="必须选择处理方式"
               size="small"
             >
@@ -125,7 +126,7 @@
             <span v-else class="no-decision">无需确认</span>
           </template>
         </el-table-column>
-      </el-table>
+      </el-table><TablePager v-model:page="page" v-model:page-size="pageSize" :total="total" label="机柜图校验预览"/>
     </template>
 
     <template #footer>
@@ -139,6 +140,12 @@
 </template>
 
 <script setup lang="ts">
+import TableSortHeader from '@/components/TableSortHeader.vue'
+import TablePager from '@/components/TablePager.vue'
+import {useClientTable} from '@/features/table/useClientTable'
+import {useColumnWidths} from '@/features/table/useColumnWidths'
+import {useDebouncedValue} from '@/features/table/useTableView'
+
 import { computed, nextTick, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { commitRackDiagramImport, validateRackDiagramImport } from '@/api/device'
@@ -162,6 +169,8 @@ const emit = defineEmits<{
   success: []
 }>()
 
+const search=ref(''),query=useDebouncedValue(search)
+const previewRows=computed(()=>(validation.value?.items||[]).filter(row=>!query.value.trim()||[row.name,row.existingDeviceName,row.rackCode,row.message].some(value=>String(value||'').toLowerCase().includes(query.value.trim().toLowerCase()))))
 const fileInput = ref<HTMLInputElement | null>(null)
 const fileName = ref('')
 const parsed = ref<Awaited<ReturnType<typeof parseRackDiagramExcel>> | null>(null)
@@ -200,6 +209,7 @@ watch(() => props.deviceTypes, () => {
 })
 
 function resetState() {
+  search.value='';query.value=''
   fileName.value = ''
   parsed.value = null
   parseError.value = ''
@@ -312,6 +322,8 @@ function errorMessage(error: unknown) {
   }
   return '操作失败'
 }
+const {page,pageSize,total,pageRows,tableRef,sortBy,onSortChange}=useClientTable(previewRows,{kindLabel:row=>statusLabel(row.kind),positionLabel:row=>(row.rackCode||'')+' '+rangeLabel(row)})
+const {columnWidths,resizeColumn}=useColumnWidths({"kindLabel": 110, "positionLabel": 145, "name": 190, "existingDeviceName": 190, "message": 260})
 </script>
 
 <style scoped>
@@ -321,18 +333,18 @@ function errorMessage(error: unknown) {
 .import-controls :deep(.el-form-item) { margin-bottom: 0; }
 .import-controls :deep(.el-select) { width: 100%; }
 .file-control { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.file-control span { overflow: hidden; color: #34495e; text-overflow: ellipsis; white-space: nowrap; }
+.file-control span { overflow: hidden; color: var(--el-text-color-regular); text-overflow: ellipsis; white-space: nowrap; }
 .file-control span.muted { color: #9aa5b1; }
 .native-file-input { display: none; }
 .import-alert { margin: 12px 0; }
 .validation-summary { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin: 14px 0; }
-.validation-summary div { padding: 11px 8px; border: 1px solid #d9e4ec; border-radius: 5px; text-align: center; background: #f8fafc; }
+.validation-summary div { padding: 11px 8px; border: 1px solid #d9e4ec; border-radius: 5px; text-align: center; background: var(--el-fill-color-light); }
 .validation-summary span { display: block; color: #718096; font-size: 12px; }
-.validation-summary strong { display: block; margin-top: 3px; color: #334155; font-size: 20px; }
+.validation-summary strong { display: block; margin-top: 3px; color: var(--el-text-color-primary); font-size: 20px; }
 .validation-summary .success strong { color: #1a8f62; }
 .validation-summary .warning strong { color: #d97706; }
 .validation-summary .danger strong { color: #dc2626; }
-.validation-table .device-name { display: block; color: #263442; }
+.validation-table .device-name { display: block; color: var(--el-text-color-primary); }
 .validation-table small { display: block; margin-top: 4px; color: #8492a6; }
 .no-decision { color: #9aa5b1; font-size: 12px; }
 .dialog-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
@@ -341,4 +353,7 @@ function errorMessage(error: unknown) {
   .import-controls { grid-template-columns: 1fr; align-items: stretch; }
   .validation-summary { grid-template-columns: repeat(2, 1fr); }
 }
+:global(.rack-diagram-import-dialog){display:flex;flex-direction:column;max-height:90vh;margin-top:5vh;max-width:95vw}
+:global(.rack-diagram-import-dialog .el-dialog__body){min-height:0;overflow-y:auto}
+@media(max-width:600px){.dialog-footer{flex-wrap:wrap}.footer-tip{flex-basis:100%}}
 </style>

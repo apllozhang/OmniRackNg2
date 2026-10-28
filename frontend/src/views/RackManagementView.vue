@@ -72,41 +72,41 @@
       </template>
 
       <el-empty v-if="!filteredRows.length" description="没有符合条件的机柜" />
-      <el-table v-else :data="pagedRows" stripe table-layout="fixed">
-        <el-table-column label="机柜" min-width="190" fixed="left">
+      <el-table v-else :data="rackPageRows" ref="rackTable" @sort-change="onRackSortChange" stripe table-layout="fixed">
+        <el-table-column label="机柜" fixed="left" prop="name" sortable="custom" :width="rackWidths['name']"><template #header><TableSortHeader label="机柜" :width="rackWidths['name']" @sort="sortRackBy('name')" @resize="resizeRackColumn('name',$event)"/></template>
           <template #default="{ row }">
             <button class="rack-name-button" type="button" @click="openDetail(row)">{{ row.name }}</button>
             <div class="cell-subtitle">{{ row.code }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="所属位置" min-width="230">
+        <el-table-column label="所属位置" prop="locationLabel" sortable="custom" :width="rackWidths['locationLabel']"><template #header><TableSortHeader label="所属位置" :width="rackWidths['locationLabel']" @sort="sortRackBy('locationLabel')" @resize="resizeRackColumn('locationLabel',$event)"/></template>
           <template #default="{ row }">
             <div>{{ row.dataCenterName }} / {{ row.roomName }}</div>
             <div class="cell-subtitle">{{ physicalLocation(row) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="110">
+        <el-table-column label="状态" prop="statusLabel" sortable="custom" :width="rackWidths['statusLabel']"><template #header><TableSortHeader label="状态" :width="rackWidths['statusLabel']" @sort="sortRackBy('statusLabel')" @resize="resizeRackColumn('statusLabel',$event)"/></template>
           <template #default="{ row }"><el-tag :type="statusType(row.status)">{{ statusLabel(row.status) }}</el-tag></template>
         </el-table-column>
-        <el-table-column label="规格" width="145">
+        <el-table-column label="规格" prop="uHeight" sortable="custom" :width="rackWidths['uHeight']"><template #header><TableSortHeader label="规格" :width="rackWidths['uHeight']" @sort="sortRackBy('uHeight')" @resize="resizeRackColumn('uHeight',$event)"/></template>
           <template #default="{ row }">
             <div>{{ row.uHeight }}U · {{ row.type || '标准机柜' }}</div>
             <div class="cell-subtitle">{{ row.widthMm }}×{{ row.depthMm }}×{{ row.heightMm }} mm</div>
           </template>
         </el-table-column>
-        <el-table-column label="模板" min-width="150">
+        <el-table-column label="模板" prop="templateLabel" sortable="custom" :width="rackWidths['templateLabel']"><template #header><TableSortHeader label="模板" :width="rackWidths['templateLabel']" @sort="sortRackBy('templateLabel')" @resize="resizeRackColumn('templateLabel',$event)"/></template>
           <template #default="{ row }">
             <span v-if="row.templateName">{{ row.templateName }} V{{ row.templateRevision }}</span>
             <span v-else class="muted">自定义参数</span>
           </template>
         </el-table-column>
-        <el-table-column label="电源 / PDU" width="135">
+        <el-table-column label="电源 / PDU" prop="pduCount" sortable="custom" :width="rackWidths['pduCount']"><template #header><TableSortHeader label="电源 / PDU" :width="rackWidths['pduCount']" @sort="sortRackBy('pduCount')" @resize="resizeRackColumn('pduCount',$event)"/></template>
           <template #default="{ row }">
             <div>{{ row.dualPower ? '双路' : '单路' }}{{ row.inputCircuits > 0 ? ' · ' + row.inputCircuits + ' 路' : '供电' }}</div>
             <div class="cell-subtitle" :class="{ muted: !row.pduCount }">{{ row.pduCount > 0 ? row.pduCount + ' 个 PDU' : 'PDU 未配置' }}</div>
           </template>
         </el-table-column>
-        <el-table-column prop="manager" label="负责人" width="110"><template #default="{ row }">{{ row.manager || '-' }}</template></el-table-column>
+        <el-table-column label="负责人" prop="manager" sortable="custom" :width="rackWidths['manager']"><template #header><TableSortHeader label="负责人" :width="rackWidths['manager']" @sort="sortRackBy('manager')" @resize="resizeRackColumn('manager',$event)"/></template><template #default="{ row }">{{ row.manager || '-' }}</template></el-table-column>
         <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
@@ -117,7 +117,7 @@
         </el-table-column>
       </el-table>
 
-      <div v-if="filteredRows.length > pageSize" class="pagination">
+      <div class="pagination">
         <el-pagination v-model:current-page="page" v-model:page-size="pageSize" layout="total, sizes, prev, pager, next" :page-sizes="[10, 20, 50, 100]" :total="filteredRows.length" />
       </div>
     </el-card>
@@ -226,6 +226,12 @@
 </template>
 
 <script setup lang="ts">
+import TableSortHeader from '@/components/TableSortHeader.vue'
+import TablePager from '@/components/TablePager.vue'
+import {useClientTable} from '@/features/table/useClientTable'
+import {useColumnWidths} from '@/features/table/useColumnWidths'
+import {useDebouncedValue} from '@/features/table/useTableView'
+
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -263,8 +269,7 @@ const detailRack = ref<RackRow | null>(null)
 const editingRack = ref<RackRow | null>(null)
 const formDataCenterId = ref('')
 const formRoomId = ref('')
-const page = ref(1)
-const pageSize = ref(20)
+
 const filters = reactive({ dataCenterId: '', roomId: '', status: '', keyword: '' })
 const appliedKeyword = ref('')
 
@@ -309,7 +314,7 @@ const filteredRows = computed(() => {
       .some((value) => String(value ?? '').toLowerCase().includes(keyword))
   })
 })
-const pagedRows = computed(() => filteredRows.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
+
 const availableRackCount = computed(() => rackRows.value.filter((item) => item.status === 'AVAILABLE').length)
 const dualPowerCount = computed(() => rackRows.value.filter((item) => item.dualPower).length)
 const attentionCount = computed(() => rackRows.value.filter((item) => ['FULL', 'MAINTENANCE', 'DISABLED'].includes(item.status)).length)
@@ -321,6 +326,9 @@ const templateOptions = computed(() => rackTemplates.value
   .filter((item) => item.status === 'ACTIVE')
   .map((template) => ({ template, version: latestTemplateVersion(template) }))
   .filter((item): item is { template: RackTemplate; version: RackTemplateVersion } => Boolean(item.version)))
+
+const {page,pageSize,total:rackTotal,pageRows:rackPageRows,sortedRows:rackSortedRows,sortKey:rackSortKey,sortOrder:rackSortOrder,tableRef:rackTable,sortBy:sortRackBy,onSortChange:onRackSortChange}=useClientTable(filteredRows,{locationLabel:row=>row.dataCenterName+' / '+row.roomName+' / '+physicalLocation(row),statusLabel:row=>statusLabel(row.status),templateLabel:row=>row.templateName?row.templateName+' V'+row.templateRevision:'自定义参数'})
+const {columnWidths:rackWidths,resizeColumn:resizeRackColumn}=useColumnWidths({"name": 190, "locationLabel": 230, "statusLabel": 110, "uHeight": 145, "templateLabel": 150, "pduCount": 135, "manager": 110})
 
 watch([() => filters.dataCenterId, () => filters.roomId, () => filters.status, pageSize], () => { page.value = 1 })
 

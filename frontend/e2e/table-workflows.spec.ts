@@ -1,5 +1,6 @@
 import { expect, test, type Download } from '@playwright/test'
 import XLSX from 'xlsx-js-style'
+import {readFile} from 'node:fs/promises'
 
 test('terminal ledger sorts, paginates, filters and exports real disposable data', async ({ page }) => {
   test.setTimeout(120_000)
@@ -423,4 +424,141 @@ test('admin and approval pages retain the displayed mutation identity after sort
     const latest=await api('GET','/admin/approval-policy')
     await api('PUT','/admin/approval-policy',policyBody(latest.version,policy.assignApprovalEnabled))
   }
+})
+
+test('all table routes remain contained across both themes and three viewport widths',async({page})=>{
+ test.setTimeout(240_000)
+ const routes=['/pc-assets','/data-centers','/racks','/asset-operations','/devices','/rack-templates','/asset-locations','/asset-reminders','/asset-audit','/notification-deliveries','/spare-parts','/asset-checks','/approvals','/admin']
+ for(const route of routes){
+  await page.goto(route);await expect(page.locator('main')).toBeVisible()
+  await expect(page.locator('.el-loading-mask:visible')).toHaveCount(0)
+  for(const theme of ['light','dark'])for(const width of [320,768,1440]){
+   await page.setViewportSize({width,height:900})
+   await page.evaluate(t=>document.documentElement.classList.toggle('dark',t==='dark'),theme)
+   await page.evaluate(()=>{(document.activeElement as HTMLElement)?.blur();window.scrollTo(0,0)})
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${route} ${theme} ${width} document overflow`).toBe(true)
+   if(width===320){
+    await page.locator('.el-table .el-scrollbar__wrap').evaluateAll(nodes=>nodes.forEach(n=>{n.scrollLeft=0}))
+    const fixed=page.locator('.el-table__cell.el-table-fixed-column--right:visible').first()
+    if(route==='/pc-assets')expect(await fixed.count()).toBe(1)
+    if(await fixed.count())await expect(fixed).toHaveCSS('position','static')
+   }
+   await page.screenshot({path:test.info().outputPath(`${route.slice(1)}-${theme}-${width}.png`),fullPage:true,animations:'disabled'})
+  }
+ }
+})
+
+test('ordinary role can read tables without privileged asset actions or admin routes',async({page})=>{
+ const target=new URL(process.env.API_PROXY_TARGET||'http://invalid')
+ if(process.env.E2E_FIXTURE_SCOPE!=='owned-disposable-pg'||target.hostname!=='127.0.0.1'||['15174','15173','19173','18080'].includes(target.port))throw new Error('Owned disposable runner required')
+ await page.goto('/pc-assets')
+ const admin=await page.evaluate(()=>localStorage.getItem('cabinet_access_token'))
+ const username=`role-${Date.now()}`,password=crypto.randomUUID()
+ const response=await page.request.post(`${target.origin}/api/v1/admin/users`,{headers:{Authorization:`Bearer ${admin}`},data:{username,displayName:'普通角色验收',authSource:'local',enabled:true,password,roleCodes:['user']}})
+ expect(response.status()).toBe(201)
+ const login=await page.request.post(`${target.origin}/api/v1/auth/login`,{data:{username,password}});expect(login.ok()).toBeTruthy()
+ const {token}= (await login.json()).data
+ await page.evaluate(value=>localStorage.setItem('cabinet_access_token',value),token)
+ await page.goto('/asset-operations');await expect(page.getByRole('heading',{name:'配置与保修中心'})).toBeVisible()
+ await expect(page.getByRole('button',{name:'配置',exact:true})).toHaveCount(0)
+ await expect(page.getByRole('button',{name:'保修 / 维保',exact:true})).toHaveCount(0)
+ await expect(page.getByRole('button',{name:'导出配置台账',exact:true})).toBeVisible()
+ const denied=await page.request.get(`${target.origin}/api/v1/admin/users`,{headers:{Authorization:`Bearer ${token}`}})
+ expect(denied.status()).toBe(403)
+ await page.goto('/admin');await expect(page).not.toHaveURL(/\/admin$/)
+})
+
+test('rack detail PDU table paginates real sockets and remains readable in dialog themes',async({page})=>{
+ test.setTimeout(120_000)
+ const target=new URL(process.env.API_PROXY_TARGET||'http://invalid')
+ if(process.env.E2E_FIXTURE_SCOPE!=='owned-disposable-pg'||target.hostname!=='127.0.0.1'||['15174','15173','19173','18080'].includes(target.port))throw new Error('Owned disposable runner required')
+ await page.goto('/room-screen')
+ const token=await page.evaluate(()=>localStorage.getItem('cabinet_access_token'))
+ const card=page.locator('.rack-card[data-rack-id]').first();await expect(card).toBeVisible()
+ const rackId=await card.getAttribute('data-rack-id')
+ async function post(path:string,data:object){const res=await page.request.post(`${target.origin}/api/v1${path}`,{headers:{Authorization:`Bearer ${token}`},data});expect(res.status()).toBe(201);return(await res.json()).data}
+ const pdu=await post(`/racks/${rackId}/pdus`,{name:'视觉验收PDU',autoGenerateCode:true,status:'ACTIVE'})
+ for(let i=61;i>=1;i--)await post(`/pdus/${pdu.id}/sockets`,{socketNo:i,standard:'CN',amperageA:10,status:'AVAILABLE'})
+ await card.locator('.rack-card-footer').getByRole('button',{name:'详情',exact:true}).click()
+ const group=page.locator('.pdu-card').filter({hasText:'视觉验收PDU'})
+ await expect(group).toBeVisible()
+ await group.getByRole('button',{name:'按插座排序',exact:true}).click()
+ const rows=group.locator('.el-table__body-wrapper .el-table__row')
+ await expect(rows).toHaveCount(20);await expect(rows.first()).toContainText('1#')
+ await group.locator('.btn-next').click();await expect(rows.first()).toContainText('21#')
+ await rows.first().getByRole('button',{name:'编辑',exact:true}).click()
+ const edit=page.getByRole('dialog',{name:'编辑插座',exact:true});await expect(edit).toBeVisible()
+ await expect(edit.locator('input').first()).toHaveValue('21')
+ await edit.getByRole('button',{name:'取消',exact:true}).click()
+ for(const theme of ['light','dark'])for(const width of [320,768,1440]){
+  await page.setViewportSize({width,height:900});await page.evaluate(t=>document.documentElement.classList.toggle('dark',t==='dark'),theme)
+  await group.scrollIntoViewIfNeeded()
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true)
+  await page.screenshot({path:test.info().outputPath(`pdu-${theme}-${width}.png`),animations:'disabled'})
+ }
+})
+
+test('import previews expose all rows and fit themed narrow dialogs without writing data',async({page})=>{
+ test.setTimeout(120_000)
+ await page.goto('/racks')
+ const target=new URL(process.env.API_PROXY_TARGET||'http://invalid')
+ if(process.env.E2E_FIXTURE_SCOPE!=='owned-disposable-pg'||target.hostname!=='127.0.0.1')throw new Error('Owned disposable runner required')
+ const token=await page.evaluate(()=>localStorage.getItem('cabinet_access_token'))
+ const treeResponse=await page.request.get(`${target.origin}/api/v1/resource-tree`,{headers:{Authorization:`Bearer ${token}`}})
+ expect(treeResponse.ok()).toBeTruthy()
+ const dc=(await treeResponse.json()).data.items[0],room=dc.rooms[0]
+ const rows=Array.from({length:241},(_,i)=>({'数据中心编码':dc.code,'机房编码':room.code,'机柜名称':`预览${i+1}`}))
+ const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,XLSX.utils.json_to_sheet(rows),'导入数据')
+ await page.getByRole('button',{name:'批量导入',exact:true}).click()
+ const dialog=page.getByRole('dialog').last()
+ await dialog.locator('input[type=file]').setInputFiles({name:'preview.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:XLSX.write(book,{type:'buffer',bookType:'xlsx'})})
+ const pager=dialog.getByRole('navigation',{name:'批量导入预览分页'})
+ await expect(pager.locator('.el-pagination__total')).toContainText('241')
+ await dialog.getByRole('button',{name:'按Excel 行排序',exact:true}).click()
+ await pager.locator('.btn-next').click()
+ await expect(dialog.locator('.el-table__body-wrapper .el-table__row').first()).toContainText('22')
+ for(const theme of ['light','dark'])for(const width of [320,768,1440]){
+  await page.setViewportSize({width,height:900});await page.evaluate(t=>document.documentElement.classList.toggle('dark',t==='dark'),theme)
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true)
+  await dialog.screenshot({path:test.info().outputPath(`batch-import-${theme}-${width}.png`),animations:'disabled'})
+ }
+ await dialog.getByRole('button',{name:'关闭',exact:true}).click()
+ await page.setViewportSize({width:1440,height:900});await page.goto('/room-screen')
+ const downloadEvent=page.waitForEvent('download')
+ await page.getByRole('button',{name:'导出机柜图',exact:true}).click()
+ const download=await downloadEvent;const filePath=await download.path();expect(filePath).toBeTruthy()
+ await page.getByRole('button',{name:'导入机柜图',exact:true}).click()
+ const diagram=page.getByRole('dialog',{name:'导入机柜图',exact:true})
+ await diagram.locator('input[type=file]').setInputFiles({name:'机柜图.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:await readFile(filePath!)})
+ await expect(diagram.getByRole('button',{name:'解析并校验',exact:true})).toBeEnabled({timeout:10000})
+ await diagram.getByRole('button',{name:'解析并校验',exact:true}).click()
+ await expect(diagram.getByRole('navigation',{name:'机柜图校验预览分页'})).toBeVisible()
+ for(const theme of ['light','dark'])for(const width of [320,768,1440]){
+  await page.setViewportSize({width,height:900});await page.evaluate(t=>document.documentElement.classList.toggle('dark',t==='dark'),theme)
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true)
+  await diagram.screenshot({path:test.info().outputPath(`diagram-import-${theme}-${width}.png`),animations:'disabled'})
+ }
+})
+
+test('nested table tabs and linked-part dialogs complete the visual matrix',async({page})=>{
+ test.setTimeout(180_000)
+ async function capture(name:string,focus?:string){
+  for(const theme of ['light','dark'])for(const width of [320,768,1440]){
+   await page.setViewportSize({width,height:900});await page.evaluate(t=>document.documentElement.classList.toggle('dark',t==='dark'),theme)
+   if(focus)await page.locator(focus).scrollIntoViewIfNeeded()
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name} ${theme} ${width}`).toBe(true)
+   await page.screenshot({path:test.info().outputPath(`${name}-${theme}-${width}.png`),fullPage:true,animations:'disabled'})
+  }
+ }
+ await page.goto('/devices');await page.getByRole('tab',{name:'设备类型',exact:true}).click();await capture('device-types')
+ await page.goto('/spare-parts')
+ await page.getByRole('tab',{name:'机房统计',exact:true}).click();await capture('stock-summary')
+ await page.getByRole('tab',{name:'库存流水',exact:true}).click();await capture('stock-movements')
+ await page.getByRole('button',{name:'资料与预警设置',exact:true}).click();await capture('spare-specs')
+ await page.getByRole('tab',{name:'最低库存',exact:true}).click();await capture('stock-minimums')
+ await page.goto('/asset-checks')
+ const task=page.locator('.ops-task-card').first();await expect(task).toBeVisible();await task.click();await capture('inventory-lines-and-findings')
+ await page.goto('/asset-operations')
+ await page.getByRole('button',{name:'配置',exact:true}).first().click()
+ await expect(page.getByRole('navigation',{name:'关联部件分页'})).toBeVisible();await capture('linked-components','[aria-label="关联部件分页"]')
 })

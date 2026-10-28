@@ -62,3 +62,19 @@ describe('ResourceManagementView copy and cross-location move', () => {
     wrapper.unmount()
   })
 })
+
+it('sorts all resource racks before paging and resets when room scope changes',async()=>{
+ const many=Array.from({length:61},(_,i)=>({...rack,id:`rack-${i+1}`,name:`机柜${i+1}`,code:`RACK-${i+1}`})).reverse()
+ mocks.getResourceTree.mockResolvedValue({items:[{...sourceDC,rooms:[{...room,racks:many},targetRoom]}]})
+ const wrapper=mountView();await flushPromises()
+ await wrapper.get('button[aria-label="按名称排序"]').trigger('click');await flushPromises()
+ expect(wrapper.findAll('.el-table__body tbody tr')).toHaveLength(20)
+ expect(wrapper.findAll('.el-table__body tbody tr')[0]?.text()).toContain('机柜1')
+ const vm=wrapper.vm as any
+ vm.resourceRackPage=4;await flushPromises()
+ expect(wrapper.findAll('.el-table__body tbody tr')).toHaveLength(1)
+ expect(wrapper.findAll('.el-table__body tbody tr')[0]?.text()).toContain('机柜61')
+ vm.selectedRoomId='room-2';await flushPromises()
+ expect(wrapper.findAll('.el-table__body tbody tr')).toHaveLength(0)
+ wrapper.unmount()
+})

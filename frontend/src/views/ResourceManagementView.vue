@@ -12,13 +12,13 @@
     </div>
 
     <el-row :gutter="16" class="summary-row">
-      <el-col :span="8"><el-card shadow="never"><div class="summary"><span>数据中心</span><strong>{{ tree.length }}</strong></div></el-card></el-col>
-      <el-col :span="8"><el-card shadow="never"><div class="summary"><span>机房</span><strong>{{ totalRooms }}</strong></div></el-card></el-col>
-      <el-col :span="8"><el-card shadow="never"><div class="summary"><span>机柜</span><strong>{{ totalRacks }}</strong></div></el-card></el-col>
+      <el-col :xs="24" :sm="8"><el-card shadow="never"><div class="summary"><span>数据中心</span><strong>{{ tree.length }}</strong></div></el-card></el-col>
+      <el-col :xs="24" :sm="8"><el-card shadow="never"><div class="summary"><span>机房</span><strong>{{ totalRooms }}</strong></div></el-card></el-col>
+      <el-col :xs="24" :sm="8"><el-card shadow="never"><div class="summary"><span>机柜</span><strong>{{ totalRacks }}</strong></div></el-card></el-col>
     </el-row>
 
     <el-row :gutter="16" class="resource-columns" v-loading="loading">
-      <el-col :span="7">
+      <el-col :xs="24" :lg="7">
         <el-card class="resource-card" shadow="never">
           <template #header><div class="card-title"><span>数据中心</span><el-tag size="small">{{ tree.length }} 个</el-tag></div></template>
           <el-empty v-if="!tree.length" description="暂无数据中心" />
@@ -42,7 +42,7 @@
         </el-card>
       </el-col>
 
-      <el-col :span="7">
+      <el-col :xs="24" :lg="7">
         <el-card class="resource-card" shadow="never">
           <template #header>
             <div class="card-title">
@@ -73,7 +73,7 @@
         </el-card>
       </el-col>
 
-      <el-col :span="10">
+      <el-col :xs="24" :lg="10">
         <el-card class="resource-card rack-card" shadow="never">
           <template #header>
             <div class="card-title">
@@ -83,15 +83,15 @@
           </template>
           <el-empty v-if="!selectedRoom" description="请先选择机房" />
           <el-empty v-else-if="!racks.length" description="暂无机柜" />
-          <el-table v-else :data="racks" size="small" stripe>
-            <el-table-column prop="code" label="编码" min-width="90" />
-            <el-table-column prop="name" label="名称" min-width="110" />
-            <el-table-column label="模板" min-width="120"><template #default="scope">{{ scope.row.templateCode ? `${scope.row.templateCode} V${scope.row.templateRevision}` : '自定义参数' }}</template></el-table-column>
-            <el-table-column label="位置" min-width="100">
+          <el-table v-else :data="resourceRackRows" ref="resourceRackTable" @sort-change="onResourcerackSortChange" size="small" stripe>
+            <el-table-column label="编码"  prop="code" sortable="custom" :width="resourceRackWidths['code']"><template #header><TableSortHeader label="编码" :width="resourceRackWidths['code']" @sort="sortResourcerackBy('code')" @resize="resizeResourcerackColumn('code',$event)"/></template></el-table-column>
+            <el-table-column label="名称"  prop="name" sortable="custom" :width="resourceRackWidths['name']"><template #header><TableSortHeader label="名称" :width="resourceRackWidths['name']" @sort="sortResourcerackBy('name')" @resize="resizeResourcerackColumn('name',$event)"/></template></el-table-column>
+            <el-table-column label="模板" prop="templateLabel" sortable="custom" :width="resourceRackWidths['templateLabel']"><template #header><TableSortHeader label="模板" :width="resourceRackWidths['templateLabel']" @sort="sortResourcerackBy('templateLabel')" @resize="resizeResourcerackColumn('templateLabel',$event)"/></template><template #default="scope">{{ scope.row.templateCode ? `${scope.row.templateCode} V${scope.row.templateRevision}` : '自定义参数' }}</template></el-table-column>
+            <el-table-column label="位置" prop="locationLabel" sortable="custom" :width="resourceRackWidths['locationLabel']"><template #header><TableSortHeader label="位置" :width="resourceRackWidths['locationLabel']" @sort="sortResourcerackBy('locationLabel')" @resize="resizeResourcerackColumn('locationLabel',$event)"/></template>
               <template #default="scope">{{ [scope.row.zone, scope.row.row, scope.row.column].filter(Boolean).join('-') || '-' }}</template>
             </el-table-column>
-            <el-table-column label="容量" width="70"><template #default="scope">{{ scope.row.uHeight }}U</template></el-table-column>
-            <el-table-column label="状态" width="88"><template #default="scope"><el-tag size="small" :type="statusType(scope.row.status)">{{ statusLabel(scope.row.status) }}</el-tag></template></el-table-column>
+            <el-table-column label="容量" prop="uHeight" sortable="custom" :width="resourceRackWidths['uHeight']"><template #header><TableSortHeader label="容量" :width="resourceRackWidths['uHeight']" @sort="sortResourcerackBy('uHeight')" @resize="resizeResourcerackColumn('uHeight',$event)"/></template><template #default="scope">{{ scope.row.uHeight }}U</template></el-table-column>
+            <el-table-column label="状态" prop="statusLabel" sortable="custom" :width="resourceRackWidths['statusLabel']"><template #header><TableSortHeader label="状态" :width="resourceRackWidths['statusLabel']" @sort="sortResourcerackBy('statusLabel')" @resize="resizeResourcerackColumn('statusLabel',$event)"/></template><template #default="scope"><el-tag size="small" :type="statusType(scope.row.status)">{{ statusLabel(scope.row.status) }}</el-tag></template></el-table-column>
             <el-table-column label="操作" width="130" fixed="right">
               <template #default="scope">
                 <el-button link type="primary" @click="openRackEdit(scope.row)">编辑</el-button>
@@ -101,7 +101,7 @@
                 </el-dropdown>
               </template>
             </el-table-column>
-          </el-table>
+          </el-table><TablePager v-model:page="resourceRackPage" v-model:page-size="resourceRackSize" :total="resourceRackTotal" label="资源机柜"/>
         </el-card>
       </el-col>
     </el-row>
@@ -172,6 +172,12 @@
 </template>
 
 <script setup lang="ts">
+import TableSortHeader from '@/components/TableSortHeader.vue'
+import TablePager from '@/components/TablePager.vue'
+import {useClientTable} from '@/features/table/useClientTable'
+import {useColumnWidths} from '@/features/table/useColumnWidths'
+import {useDebouncedValue} from '@/features/table/useTableView'
+
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -367,6 +373,8 @@ function errorMessage(error: unknown) { const value = error as { response?: { da
 function handleCancelOrError(error: unknown) { if (error !== 'cancel' && error !== 'close') ElMessage.error(errorMessage(error)) }
 
 onMounted(() => { void loadTree(); void loadRackTemplates() })
+const {page:resourceRackPage,pageSize:resourceRackSize,total:resourceRackTotal,pageRows:resourceRackRows,sortedRows:resourceRackSortedRows,sortKey:resourceRackSortKey,sortOrder:resourceRackSortOrder,tableRef:resourceRackTable,sortBy:sortResourcerackBy,onSortChange:onResourcerackSortChange}=useClientTable(racks,{templateLabel:row=>row.templateCode?row.templateCode+' V'+row.templateRevision:'自定义参数',locationLabel:row=>[row.zone,row.row,row.column].filter(Boolean).join('-'),statusLabel:row=>statusLabel(row.status)})
+const {columnWidths:resourceRackWidths,resizeColumn:resizeResourcerackColumn}=useColumnWidths({"code": 110, "name": 110, "templateLabel": 120, "locationLabel": 110, "uHeight": 110, "statusLabel": 110})
 </script>
 
 <style scoped>
@@ -384,8 +392,8 @@ onMounted(() => { void loadTree(); void loadRackTemplates() })
 .resource-card { height:100%; min-height:560px; }
 .card-title { display:flex; align-items:center; justify-content:space-between; font-weight:700; }
 .resource-item { display:flex; align-items:flex-start; gap:10px; padding:13px 10px; margin-bottom:8px; border:1px solid var(--color-border-soft); border-radius:8px; cursor:pointer; transition:.15s ease; }
-.resource-item:hover { border-color:#93c5fd; background:#f8fbff; }
-.resource-item.active { border-color:var(--color-action); background:#ecf5ff; }
+.resource-item:hover { border-color:#93c5fd; background:var(--color-purple-tint); }
+.resource-item.active { border-color:var(--color-action); background:var(--color-purple-tint); }
 .item-main { min-width:0; flex:1; }
 .item-name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .item-code, .item-meta { margin-top:4px; color:var(--color-text-muted); font-size:12px; }
@@ -396,4 +404,6 @@ onMounted(() => { void loadTree(); void loadRackTemplates() })
 .code-field { width:100%; display:flex; align-items:center; gap:10px; }
 .code-field .el-input { flex:1; }
 .code-field .el-checkbox { flex:none; }
+@media(max-width:1100px){.resource-columns>.el-col{margin-bottom:16px}.resource-columns,.resource-card{min-height:0}.resource-card{height:auto}}
+@media(max-width:600px){.summary-row>.el-col{margin-bottom:8px}}
 </style>
