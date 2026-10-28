@@ -3,12 +3,13 @@
     "file": "frontend/src/components/SpareMovementTable.vue",
     "tables": [
       {
-        "line": 8,
-        "tag": "<el-table :data=\"rows\" empty-text=\"暂无库存流水\">"
+        "line": 17,
+        "tag": "<el-table :data=\"pageRows\" ref=\"tableRef\" @sort-change=\"onSortChange\" empty-text=\"暂无库存流水\">"
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited"
+    "status": "client sorting/paging and keyboard resize implemented; 61-row component verification; full visual acceptance pending",
+    "shared_pager_tags": 1
   },
   {
     "file": "frontend/src/components/AssetAuditPanel.vue",
@@ -19,7 +20,8 @@
       }
     ],
     "pagination_tags": 1,
-    "status": "not yet remediated/audited"
+    "status": "not yet remediated/audited",
+    "shared_pager_tags": 0
   },
   {
     "file": "frontend/src/components/PDUManager.vue",
@@ -30,7 +32,8 @@
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited"
+    "status": "not yet remediated/audited",
+    "shared_pager_tags": 0
   },
   {
     "file": "frontend/src/components/RackDiagramImportDialog.vue",
@@ -41,7 +44,8 @@
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited"
+    "status": "not yet remediated/audited",
+    "shared_pager_tags": 0
   },
   {
     "file": "frontend/src/components/BatchImportDialog.vue",
@@ -52,7 +56,8 @@
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited"
+    "status": "not yet remediated/audited",
+    "shared_pager_tags": 0
   },
   {
     "file": "frontend/src/views/SparePartsView.vue",
@@ -75,18 +80,20 @@
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited"
+    "status": "not yet remediated/audited",
+    "shared_pager_tags": 0
   },
   {
     "file": "frontend/src/views/AssetRemindersView.vue",
     "tables": [
       {
-        "line": 14,
-        "tag": "<el-table :data=\"reminders\">"
+        "line": 29,
+        "tag": "<el-table :data=\"pageRows\" ref=\"tableRef\" @sort-change=\"onSortChange\">"
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited"
+    "status": "client sorting/paging/search and keyboard resize implemented; real Element component verification; full visual acceptance pending",
+    "shared_pager_tags": 1
   },
   {
     "file": "frontend/src/views/ApprovalCenterView.vue",
@@ -97,7 +104,8 @@
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited"
+    "status": "not yet remediated/audited",
+    "shared_pager_tags": 0
   },
   {
     "file": "frontend/src/views/AssetChecksView.vue",
@@ -112,7 +120,8 @@
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited"
+    "status": "not yet remediated/audited",
+    "shared_pager_tags": 0
   },
   {
     "file": "frontend/src/views/AdminView.vue",
@@ -123,7 +132,8 @@
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited"
+    "status": "not yet remediated/audited",
+    "shared_pager_tags": 0
   },
   {
     "file": "frontend/src/views/NotificationDeliveriesView.vue",
@@ -134,7 +144,8 @@
       }
     ],
     "pagination_tags": 1,
-    "status": "not yet remediated/audited"
+    "status": "not yet remediated/audited",
+    "shared_pager_tags": 0
   },
   {
     "file": "frontend/src/views/RackManagementView.vue",
@@ -145,7 +156,8 @@
       }
     ],
     "pagination_tags": 1,
-    "status": "not yet remediated/audited"
+    "status": "not yet remediated/audited",
+    "shared_pager_tags": 0
   },
   {
     "file": "frontend/src/views/AssetOperationsView.vue",
@@ -160,7 +172,8 @@
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited"
+    "status": "not yet remediated/audited",
+    "shared_pager_tags": 0
   },
   {
     "file": "frontend/src/views/ResourceManagementView.vue",
@@ -171,40 +184,44 @@
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited"
+    "status": "not yet remediated/audited",
+    "shared_pager_tags": 0
   },
   {
     "file": "frontend/src/views/PCAssetsView.vue",
     "tables": [
       {
-        "line": 134,
+        "line": 137,
         "tag": "<el-table ref=\"assetTable\" :data=\"pageRows\" row-key=\"device.id\" @sort-change=\"onSortChange\" @selection-change=\"selected=$event\">"
       }
     ],
     "pagination_tags": 2,
-    "status": "terminal pilot in progress"
+    "status": "terminal pilot implemented with actual keyboard column resize verification; combination filters, selected export and full narrow/theme acceptance remain",
+    "shared_pager_tags": 0
   },
   {
     "file": "frontend/src/views/RackTemplateView.vue",
     "tables": [
       {
         "line": 17,
-        "tag": "<el-table :data=\"templates\" stripe>"
+        "tag": "<el-table :data=\"pageRows\" ref=\"tableRef\" @sort-change=\"onSortChange\" stripe>"
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited"
+    "status": "client sorting/paging/search and keyboard resize implemented; real Element numeric specification/revision verification; full visual acceptance pending",
+    "shared_pager_tags": 1
   },
   {
     "file": "frontend/src/views/AssetLocationsView.vue",
     "tables": [
       {
-        "line": 17,
-        "tag": "<el-table :data=\"sites\">"
+        "line": 32,
+        "tag": "<el-table :data=\"pageRows\" ref=\"tableRef\" @sort-change=\"onSortChange\">"
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited"
+    "status": "client sorting/paging/search and keyboard resize implemented; 61-row component and actual browser verification; 375px light/dark screenshots and no document overflow verified in browser-05; full width/role acceptance pending",
+    "shared_pager_tags": 1
   },
   {
     "file": "frontend/src/views/DeviceManagementView.vue",
@@ -219,6 +236,7 @@
       }
     ],
     "pagination_tags": 1,
-    "status": "not yet remediated/audited"
+    "status": "not yet remediated/audited",
+    "shared_pager_tags": 0
   }
 ]

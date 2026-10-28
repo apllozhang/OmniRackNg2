@@ -1,4 +1,4 @@
-import ElementPlus from 'element-plus'
+import ElementPlus, {ElPagination} from 'element-plus'
 import {mount,flushPromises} from '@vue/test-utils'
 import {expect,it,vi} from 'vitest'
 import SpareMovementTable from './SpareMovementTable.vue'
@@ -15,4 +15,27 @@ it('does not fabricate state history for old movement rows',async()=>{
  const w=mount(SpareMovementTable,{props:{rows:[{operation:'IN',beforeQuantity:0,afterQuantity:1}],sites:[]},global:{plugins:[ElementPlus]}})
  await flushPromises()
  expect(w.text()).toContain('未记录 → 未记录');w.unmount()
+})
+
+it('sorts all movement quantities and timestamps before pagination without changing the source order',async()=>{
+ const rows=Array.from({length:61},(_,index)=>({id:`m-${index}`,operation:'IN',beforeQuantity:0,afterQuantity:61-index,createdAt:new Date(Date.UTC(2026,0,61-index)).toISOString()}))
+ const before=rows.map(row=>row.id)
+ const w=mount(SpareMovementTable,{props:{rows,sites:[]},global:{plugins:[ElementPlus]}})
+ await flushPromises()
+ const rendered=()=>w.findAll('.el-table__body tbody tr')
+ expect(rendered()).toHaveLength(20)
+ await w.get('button[aria-label="按数量变化排序"]').trigger('click');await flushPromises()
+ expect(rendered()[0]!.text()).toContain('0 → 1')
+ const pager=w.findComponent(ElPagination)
+ pager.vm.$emit('update:current-page',2);await flushPromises()
+ expect(rendered()[0]!.text()).toContain('0 → 21')
+ await w.get('button[aria-label="按时间排序"]').trigger('click');await flushPromises()
+ expect(pager.props('currentPage')).toBe(1)
+ expect(rendered()[0]!.text()).toContain('0 → 1')
+ await w.get('button[aria-label="按时间排序"]').trigger('click');await flushPromises()
+ expect(rendered()[0]!.text()).toContain('0 → 61')
+ expect(rows.map(row=>row.id)).toEqual(before)
+ await w.setProps({rows:rows.slice(0,1)})
+ expect(pager.props('total')).toBe(1)
+ w.unmount()
 })

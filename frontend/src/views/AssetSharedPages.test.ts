@@ -28,7 +28,7 @@ it('refreshes reminders and records acknowledgement from the standalone page',as
 it('keeps reminder actions read only for auditors while retaining business export',async()=>{
   api.role='asset_auditor'
   const w=render(AssetRemindersView);await flushPromises()
-  expect(w.text()).toContain('即将过保');expect(w.findAll('button')).toHaveLength(0)
+  expect(w.text()).toContain('即将过保');expect(w.findAll('button').map(b=>b.text())).not.toContain('立即检查');expect(w.findAll('button').map(b=>b.text())).not.toContain('记录处理');expect(api.ops).not.toHaveBeenCalled()
   const data=render(AssetDataView)
   await data.findAll('button').find(b=>b.text()==='导出完整业务 JSON')!.trigger('click');await flushPromises()
   expect(api.bundle).toHaveBeenCalledTimes(1)
