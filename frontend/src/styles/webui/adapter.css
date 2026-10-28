@@ -54,3 +54,9 @@ html .app-shell .distribution-track i{background:var(--color-action)}
 @media(max-width:1000px){html .app-shell .webui-version,html .app-shell .breadcrumb-root,html .app-shell .breadcrumb-slash{display:none}html .app-shell .topbar{gap:8px;padding-left:16px;padding-right:16px}html .app-shell .topbar-right{gap:8px}}
 @media(max-width:480px){html .app-shell .overview-metrics{grid-template-columns:minmax(0,1fr)}html .app-shell .user-menu>span:nth-child(2){display:none}html .app-shell .topbar-left{gap:6px}html .app-shell .topbar-left strong{white-space:normal}html .app-shell .resource-summary{grid-template-columns:repeat(3,minmax(0,1fr))}html .app-shell .resource-summary div+div{padding-left:10px}}
 @media(max-width:760px){html .app-shell .sidebar{display:none}html .app-shell .sidebar.mobile-open{display:flex}}
+html .app-shell .metric-top,html .app-shell .metric-note,html .app-shell .refresh-note,html .app-shell .distribution-list>div>span,html .app-shell .panel-bottom>span,html .app-shell .resource-summary span,html .app-shell .center-row,html .app-shell .quick-links small{color:var(--color-text-secondary)}
+html .app-shell .main-content .el-card__header{border-bottom-color:var(--color-border-soft)}
+html.dark .app-shell .main-content a,html.dark .el-button.is-link{color:var(--color-link)}
+html.dark .el-tag--warning{--el-tag-text-color:var(--status-warning-text);--el-tag-bg-color:color-mix(in srgb,var(--status-warning-graphic) 15%,var(--color-surface));--el-tag-border-color:var(--color-border)}
+html.dark .el-tag--danger{--el-tag-text-color:var(--status-danger-text);--el-tag-bg-color:color-mix(in srgb,var(--status-danger-graphic) 15%,var(--color-surface));--el-tag-border-color:var(--color-border)}
+html.dark .el-tag--success{--el-tag-text-color:var(--status-success-text);--el-tag-bg-color:color-mix(in srgb,var(--status-success-graphic) 15%,var(--color-surface));--el-tag-border-color:var(--color-border)}
