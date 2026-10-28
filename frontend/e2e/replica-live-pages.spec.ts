@@ -40,9 +40,11 @@ test('WebUI theme persists and navigation fits narrow screens', async ({ page },
   const toggle = page.getByRole('button', { name: '切换亮暗主题' })
   await expect(toggle).toBeVisible()
   const original = await page.locator('html').getAttribute('data-theme')
+  const backgroundBefore = await page.locator('.main-content').evaluate(el => getComputedStyle(el).backgroundColor)
   await toggle.click()
   const changed = await page.locator('html').getAttribute('data-theme')
   expect(changed).not.toBe(original)
+  expect(await page.locator('.main-content').evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(backgroundBefore)
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute('data-theme', changed!)
   for (const width of [1440, 768, 320]) {

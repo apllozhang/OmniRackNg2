@@ -7,6 +7,7 @@ export function initializeTheme() {
   applyTheme()
 }
 function applyTheme() {
+  document.documentElement.classList.toggle('dark', darkTheme.value)
   document.documentElement.dataset.theme = darkTheme.value ? 'dark' : 'light'
   document.documentElement.style.colorScheme = darkTheme.value ? 'dark' : 'light'
 }
