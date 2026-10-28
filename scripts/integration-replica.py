@@ -37,6 +37,7 @@ def main():
     parser.add_argument("--server", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--browser", action="store_true", help="also run real-API Playwright page tests")
+    parser.add_argument("--business-workflows", action="store_true", help="run additional business loops (see reported group coverage)")
     args = parser.parse_args()
     if (args.pg_image or args.browser_image) and os.uname().sysname != "Linux":
         parser.error("Docker test mode requires Linux host networking; use --pg-bin on other hosts")
@@ -218,11 +219,16 @@ def main():
             # Existing JWT must cease to grant access after disablement.
             api("PUT", f"/admin/users/{auditor['id']}?version={auditor['version']}", {"username": "auditor", "displayName": "已停用", "enabled": False, "roleCodes": ["asset_auditor"]})
             api("GET", "/asset-ops/sites", expected=401, auth=audit_token)
+            business_results = None
+            if args.business_workflows:
+                from business_workflows import run_business_workflows
+                business_results = run_business_workflows(api, room, rack)
             if args.browser:
                 front_port = free_port()
                 front_url = f"http://127.0.0.1:{front_port}"
                 browser_env = dict(os.environ, E2E_LIVE="true", E2E_USERNAME="admin", E2E_PASSWORD=password,
-                                   PLAYWRIGHT_BASE_URL=front_url, API_PROXY_TARGET=base)
+                                   PLAYWRIGHT_BASE_URL=front_url, API_PROXY_TARGET=base,
+                                   E2E_FIXTURE_SCOPE="owned-disposable-pg")
                 frontend = subprocess.Popen(["node", "node_modules/vite/bin/vite.js", "--host", "127.0.0.1",
                                              "--port", str(front_port), "--strictPort"], cwd=root / "frontend",
                                             env=browser_env, stdout=log, stderr=log)
@@ -240,7 +246,7 @@ def main():
                         docker = ["docker", "run", "--rm", "--network", "host", "--shm-size=256m",
                                   "--user", f"{os.getuid()}:{os.getgid()}", "--env", "HOME=/tmp", "--volume", f"{root}:/work",
                                   "--workdir", "/work/frontend"]
-                        for key in ["E2E_LIVE", "E2E_USERNAME", "E2E_PASSWORD", "PLAYWRIGHT_BASE_URL", "API_PROXY_TARGET"]:
+                        for key in ["E2E_LIVE", "E2E_USERNAME", "E2E_PASSWORD", "PLAYWRIGHT_BASE_URL", "API_PROXY_TARGET", "E2E_FIXTURE_SCOPE"]:
                             docker.extend(["--env", key])
                         command = docker + [args.browser_image] + command
                     subprocess.run(command, cwd=root / "frontend", env=browser_env,
@@ -248,7 +254,7 @@ def main():
             report = {"passed": True, "checks": checks, "request_count": len(checks),
                       "scope": "Owned disposable loopback PostgreSQL 16 + newly built native backend; no existing instances or data",
                       "postgres_mode": "docker-tmpfs" if args.pg_image else "temporary-native-cluster",
-                      "postgres_invariants": args.go_invariants,
+                      "postgres_invariants": args.go_invariants, "business_workflow_groups": business_results,
                       "browser_mode": "docker" if args.browser_image else ("host" if args.browser else "not-run"),
                       "limitations": ["Not exhaustive: real SMTP, LDAP and camera hardware are not exercised."]}
             (args.output / "result.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")

@@ -1,0 +1,224 @@
+[
+  {
+    "file": "frontend/src/components/SpareMovementTable.vue",
+    "tables": [
+      {
+        "line": 8,
+        "tag": "<el-table :data=\"rows\" empty-text=\"暂无库存流水\">"
+      }
+    ],
+    "pagination_tags": 0,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/components/AssetAuditPanel.vue",
+    "tables": [
+      {
+        "line": 11,
+        "tag": "<el-table :data=\"rows\" v-loading=\"loading\">"
+      }
+    ],
+    "pagination_tags": 1,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/components/PDUManager.vue",
+    "tables": [
+      {
+        "line": 1,
+        "tag": "<el-table :data=\"pdu.sockets || []\" size=\"small\" border empty-text=\"暂无插座\">"
+      }
+    ],
+    "pagination_tags": 0,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/components/RackDiagramImportDialog.vue",
+    "tables": [
+      {
+        "line": 82,
+        "tag": "<el-table :data=\"validation.items\" border max-height=\"470\" row-key=\"id\" class=\"validation-table\">"
+      }
+    ],
+    "pagination_tags": 0,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/components/BatchImportDialog.vue",
+    "tables": [
+      {
+        "line": 23,
+        "tag": "<el-table v-loading=\"parsing\" :data=\"previewRows\" stripe height=\"420px\">"
+      }
+    ],
+    "pagination_tags": 0,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/views/SparePartsView.vue",
+    "tables": [
+      {
+        "line": 46,
+        "tag": "<el-table :data=\"filtered\" row-key=\"id\" :empty-text=\"stocks.length?'没有匹配的备件，请调整筛选条件':canWrite?'暂无备件，点击上方录入备件开始登记':'暂无备件记录'\" @selection-change=\"selected=$event\">"
+      },
+      {
+        "line": 47,
+        "tag": "<el-table :data=\"summary\">"
+      },
+      {
+        "line": 49,
+        "tag": "<el-table :data=\"specs\">"
+      },
+      {
+        "line": 50,
+        "tag": "<el-table :data=\"minimums\">"
+      }
+    ],
+    "pagination_tags": 0,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/views/AssetRemindersView.vue",
+    "tables": [
+      {
+        "line": 14,
+        "tag": "<el-table :data=\"reminders\">"
+      }
+    ],
+    "pagination_tags": 0,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/views/ApprovalCenterView.vue",
+    "tables": [
+      {
+        "line": 24,
+        "tag": "<el-table :data=\"rows\" v-loading=\"loading\">"
+      }
+    ],
+    "pagination_tags": 0,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/views/AssetChecksView.vue",
+    "tables": [
+      {
+        "line": 52,
+        "tag": "<el-table :data=\"lines\">"
+      },
+      {
+        "line": 52,
+        "tag": "<el-table :data=\"discoveries\">"
+      }
+    ],
+    "pagination_tags": 0,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/views/AdminView.vue",
+    "tables": [
+      {
+        "line": 12,
+        "tag": "<el-table v-loading=\"userLoading\" :data=\"users\" stripe>"
+      }
+    ],
+    "pagination_tags": 0,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/views/NotificationDeliveriesView.vue",
+    "tables": [
+      {
+        "line": 14,
+        "tag": "<el-table :data=\"deliveries\" v-loading=\"historyLoading\">"
+      }
+    ],
+    "pagination_tags": 1,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/views/RackManagementView.vue",
+    "tables": [
+      {
+        "line": 75,
+        "tag": "<el-table v-else :data=\"pagedRows\" stripe table-layout=\"fixed\">"
+      }
+    ],
+    "pagination_tags": 1,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/views/AssetOperationsView.vue",
+    "tables": [
+      {
+        "line": 27,
+        "tag": "<el-table :data=\"filtered\" @selection-change=\"selected=$event\" row-key=\"device.id\">"
+      },
+      {
+        "line": 28,
+        "tag": "<el-table :data=\"current?.components||[]\">"
+      }
+    ],
+    "pagination_tags": 0,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/views/ResourceManagementView.vue",
+    "tables": [
+      {
+        "line": 86,
+        "tag": "<el-table v-else :data=\"racks\" size=\"small\" stripe>"
+      }
+    ],
+    "pagination_tags": 0,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/views/PCAssetsView.vue",
+    "tables": [
+      {
+        "line": 134,
+        "tag": "<el-table ref=\"assetTable\" :data=\"pageRows\" row-key=\"device.id\" @sort-change=\"onSortChange\" @selection-change=\"selected=$event\">"
+      }
+    ],
+    "pagination_tags": 2,
+    "status": "terminal pilot in progress"
+  },
+  {
+    "file": "frontend/src/views/RackTemplateView.vue",
+    "tables": [
+      {
+        "line": 17,
+        "tag": "<el-table :data=\"templates\" stripe>"
+      }
+    ],
+    "pagination_tags": 0,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/views/AssetLocationsView.vue",
+    "tables": [
+      {
+        "line": 17,
+        "tag": "<el-table :data=\"sites\">"
+      }
+    ],
+    "pagination_tags": 0,
+    "status": "not yet remediated/audited"
+  },
+  {
+    "file": "frontend/src/views/DeviceManagementView.vue",
+    "tables": [
+      {
+        "line": 24,
+        "tag": "<el-table ref=\"deviceTable\" v-loading=\"deviceLoading\" :data=\"devices\" row-key=\"id\" stripe @selection-change=\"onDeviceSelection\">"
+      },
+      {
+        "line": 48,
+        "tag": "<el-table :data=\"shownTypes\" stripe>"
+      }
+    ],
+    "pagination_tags": 1,
+    "status": "not yet remediated/audited"
+  }
+]
