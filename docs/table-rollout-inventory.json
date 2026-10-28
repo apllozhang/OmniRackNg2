@@ -16,7 +16,7 @@
     "tables": [
       {
         "line": 16,
-        "tag": "<el-table ref=\"tableRef\" @sort-change=\"onSortChange\" :data=\"rows\" v-loading=\"loading\">"
+        "tag": "<el-table :aria-busy=\"loading||search!==query\" ref=\"tableRef\" @sort-change=\"onSortChange\" :data=\"rows\" v-loading=\"loading\">"
       }
     ],
     "pagination_tags": 0,
@@ -65,19 +65,19 @@
     "tables": [
       {
         "line": 76,
-        "tag": "<el-table :data=\"stockPageRows\" ref=\"stockTable\" @sort-change=\"onStockSortChange\" row-key=\"id\" :empty-text=\"stocks.length?'没有匹配的备件，请调整筛选条件':canWrite?'暂无备件，点击上方录入备件开始登记':'暂无备件记录'\" @selection-change=\"selected=$event\">"
+        "tag": "<el-table :data=\"stockPageRows\" :aria-busy=\"loading||filter.search!==stockQuery\" ref=\"stockTable\" @sort-change=\"onStockSortChange\" row-key=\"id\" :empty-text=\"stocks.length?'没有匹配的备件，请调整筛选条件':canWrite?'暂无备件，点击上方录入备件开始登记':'暂无备件记录'\" @selection-change=\"selected=$event\">"
       },
       {
         "line": 77,
-        "tag": "<el-table :data=\"summaryPageRows\" ref=\"summaryTable\" @sort-change=\"onSummarySortChange\">"
+        "tag": "<el-table :data=\"summaryPageRows\" :aria-busy=\"loading||summarySearch!==summaryQuery\" ref=\"summaryTable\" @sort-change=\"onSummarySortChange\">"
       },
       {
         "line": 79,
-        "tag": "<el-table :data=\"specPageRows\" ref=\"specTable\" @sort-change=\"onSpecSortChange\">"
+        "tag": "<el-table :data=\"specPageRows\" :aria-busy=\"loading||specSearch!==specQuery\" ref=\"specTable\" @sort-change=\"onSpecSortChange\">"
       },
       {
         "line": 80,
-        "tag": "<el-table :data=\"minimumPageRows\" ref=\"minimumTable\" @sort-change=\"onMinimumSortChange\">"
+        "tag": "<el-table :data=\"minimumPageRows\" :aria-busy=\"loading||minimumSearch!==minimumQuery\" ref=\"minimumTable\" @sort-change=\"onMinimumSortChange\">"
       }
     ],
     "pagination_tags": 0,
@@ -90,7 +90,7 @@
     "tables": [
       {
         "line": 29,
-        "tag": "<el-table :data=\"pageRows\" ref=\"tableRef\" @sort-change=\"onSortChange\">"
+        "tag": "<el-table :data=\"pageRows\" :aria-busy=\"loading||search!==query\" ref=\"tableRef\" @sort-change=\"onSortChange\">"
       }
     ],
     "pagination_tags": 0,
@@ -101,24 +101,24 @@
     "file": "frontend/src/views/ApprovalCenterView.vue",
     "tables": [
       {
-        "line": 24,
-        "tag": "<el-table :data=\"rows\" v-loading=\"loading\">"
+        "line": 37,
+        "tag": "<el-table :data=\"pageRows\" :aria-busy=\"loading||search!==query\" ref=\"tableRef\" @sort-change=\"onSortChange\" v-loading=\"loading\">"
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited",
-    "shared_pager_tags": 0
+    "status": "complete server-filtered collection client sorting/search/paging with LWW fetch guard; Element61 and authenticated browser61 decisions on page2 preserve record/version and actual position execution/rejection; full visual acceptance pending",
+    "shared_pager_tags": 1
   },
   {
     "file": "frontend/src/views/AssetChecksView.vue",
     "tables": [
       {
         "line": 70,
-        "tag": "<el-table :data=\"linePageRows\" ref=\"lineTable\" @sort-change=\"onLineSortChange\">"
+        "tag": "<el-table :data=\"linePageRows\" :aria-busy=\"detailLoading||lineSearch!==lineQuery\" ref=\"lineTable\" @sort-change=\"onLineSortChange\">"
       },
       {
         "line": 70,
-        "tag": "<el-table :data=\"discoveryPageRows\" ref=\"discoveryTable\" @sort-change=\"onDiscoverySortChange\">"
+        "tag": "<el-table :data=\"discoveryPageRows\" :aria-busy=\"detailLoading||discoverySearch!==discoveryQuery\" ref=\"discoveryTable\" @sort-change=\"onDiscoverySortChange\">"
       }
     ],
     "pagination_tags": 0,
@@ -131,19 +131,20 @@
     "tables": [
       {
         "line": 12,
-        "tag": "<el-table v-loading=\"userLoading\" :data=\"users\" stripe>"
+        "tag": "<el-table :aria-busy=\"userLoading||userSearch!==userSearchQuery\" ref=\"userTableRef\" @sort-change=\"onUserSortChange\" v-loading=\"userLoading\" :data=\"userPageRows\" stripe>"
       }
     ],
     "pagination_tags": 0,
-    "status": "not yet remediated/audited",
-    "shared_pager_tags": 0
+    "status": "complete server-filtered user collection client sorting/paging and debounced search/source refresh; Element61 and authenticated browser61 mutation identity verified; editor captures opening version instead of borrowing refreshed list version; full visual acceptance pending",
+    "shared_pager_tags": 1,
+    "sort_semantics": "Role combination sorted by sorted role-name set; source/enabled map to displayed labels; last login parsed as timestamp, empty last."
   },
   {
     "file": "frontend/src/views/NotificationDeliveriesView.vue",
     "tables": [
       {
         "line": 16,
-        "tag": "<el-table ref=\"tableRef\" @sort-change=\"onSortChange\" :data=\"deliveries\" v-loading=\"historyLoading\">"
+        "tag": "<el-table :aria-busy=\"historyLoading||search!==query\" ref=\"tableRef\" @sort-change=\"onSortChange\" :data=\"deliveries\" v-loading=\"historyLoading\">"
       }
     ],
     "pagination_tags": 0,
@@ -196,7 +197,7 @@
     "tables": [
       {
         "line": 137,
-        "tag": "<el-table ref=\"assetTable\" :data=\"pageRows\" row-key=\"device.id\" @sort-change=\"onSortChange\" @selection-change=\"selected=$event\">"
+        "tag": "<el-table :aria-busy=\"loading||search!==query\" ref=\"assetTable\" :data=\"pageRows\" row-key=\"device.id\" @sort-change=\"onSortChange\" @selection-change=\"selected=$event\">"
       }
     ],
     "pagination_tags": 2,
@@ -208,7 +209,7 @@
     "tables": [
       {
         "line": 17,
-        "tag": "<el-table :data=\"pageRows\" ref=\"tableRef\" @sort-change=\"onSortChange\" stripe>"
+        "tag": "<el-table :data=\"pageRows\" :aria-busy=\"loading||search!==query\" ref=\"tableRef\" @sort-change=\"onSortChange\" stripe>"
       }
     ],
     "pagination_tags": 0,
@@ -220,7 +221,7 @@
     "tables": [
       {
         "line": 32,
-        "tag": "<el-table :data=\"pageRows\" ref=\"tableRef\" @sort-change=\"onSortChange\">"
+        "tag": "<el-table :data=\"pageRows\" :aria-busy=\"loading||search!==query\" ref=\"tableRef\" @sort-change=\"onSortChange\">"
       }
     ],
     "pagination_tags": 0,
@@ -232,11 +233,11 @@
     "tables": [
       {
         "line": 24,
-        "tag": "<el-table @sort-change=\"onDeviceSortChange\" ref=\"deviceTable\" v-loading=\"deviceLoading\" :data=\"devices\" row-key=\"id\" stripe @selection-change=\"onDeviceSelection\">"
+        "tag": "<el-table @sort-change=\"onDeviceSortChange\" :aria-busy=\"deviceLoading||filters.search!==appliedFilters.search\" ref=\"deviceTable\" v-loading=\"deviceLoading\" :data=\"devices\" row-key=\"id\" stripe @selection-change=\"onDeviceSelection\">"
       },
       {
         "line": 48,
-        "tag": "<el-table :data=\"typePageRows\" ref=\"typeTableRef\" @sort-change=\"onTypeSortChange\" stripe>"
+        "tag": "<el-table :data=\"typePageRows\" :aria-busy=\"typeSearch!==typeQuery\" ref=\"typeTableRef\" @sort-change=\"onTypeSortChange\" stripe>"
       }
     ],
     "pagination_tags": 1,

@@ -14,7 +14,7 @@
     <el-alert title="系统内置“标准 42U 机柜”模板不可删除或停用；新增版本不会自动修改已创建机柜。" type="info" show-icon :closable="false" />
 
     <el-card shadow="never" class="table-card" v-loading="loading">
-      <el-input v-model="search" clearable aria-label="搜索模板编码或名称" placeholder="搜索模板编码或名称" style="max-width:360px;margin-bottom:12px"/><el-table :data="pageRows" ref="tableRef" @sort-change="onSortChange" stripe>
+      <el-input v-model="search" clearable aria-label="搜索模板编码或名称" placeholder="搜索模板编码或名称" style="max-width:360px;margin-bottom:12px"/><el-table :data="pageRows" :aria-busy="loading||search!==query" ref="tableRef" @sort-change="onSortChange" stripe>
         <el-table-column label="模板编码"  prop="code" sortable="custom" :width="columnWidths['code']"><template #header><TableSortHeader label="模板编码" :width="columnWidths['code']" @resize="resizeColumn('code', $event)" @sort="sortBy('code')"/></template></el-table-column>
         <el-table-column label="模板名称" prop="name" sortable="custom" :width="columnWidths['name']"><template #header><TableSortHeader label="模板名称" :width="columnWidths['name']" @resize="resizeColumn('name', $event)" @sort="sortBy('name')"/></template>
           <template #default="scope">
