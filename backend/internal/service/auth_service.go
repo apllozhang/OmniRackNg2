@@ -132,22 +132,27 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (Log
 			return LoginResult{}, fmt.Errorf("%w: %v", ErrAuthUnavailable, err)
 		}
 	} else {
-		user.DisplayName = identity.DisplayName
-		user.Email = identity.Email
-		if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := tx.Model(&user).Updates(map[string]interface{}{"display_name": user.DisplayName, "email": user.Email}).Error; err != nil {
-				return err
-			}
-			if err := tx.Model(&user).Association("Roles").Replace(roles); err != nil {
-				return err
-			}
-			return nil
-		}); err != nil {
-			return LoginResult{}, fmt.Errorf("%w: %v", ErrAuthUnavailable, err)
+		user, err = s.syncLDAPIdentity(ctx, user, identity, roles)
+		if err != nil {
+			return LoginResult{}, err
 		}
-		user.Roles = roles
 	}
 	return s.issueToken(ctx, user)
+}
+
+func (s *AuthService) syncLDAPIdentity(ctx context.Context, user model.User, identity LDAPIdentity, roles []model.Role) (model.User, error) {
+	roleCodes := make([]string, 0, len(roles))
+	for _, role := range roles {
+		roleCodes = append(roleCodes, role.Code)
+	}
+	updated, err := repository.SyncLDAPIdentity(ctx, s.db, user.ID, user.Version, identity.DisplayName, identity.Email, roleCodes)
+	if err != nil {
+		if errors.Is(err, repository.ErrLDAPIdentityChanged) || errors.Is(err, repository.ErrLastEnabledAdmin) || errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.User{}, ErrInvalidCredentials
+		}
+		return model.User{}, fmt.Errorf("%w: %v", ErrAuthUnavailable, err)
+	}
+	return updated, nil
 }
 
 func (s *AuthService) ldapRoles(ctx context.Context, cfg model.LDAPConfig, groups []string) ([]model.Role, error) {

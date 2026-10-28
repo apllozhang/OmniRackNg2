@@ -3,13 +3,16 @@ package repository
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"omnirack-replica/backend/internal/model"
 )
 
 var ErrLastEnabledAdmin = errors.New("cannot remove the last enabled administrator")
+var ErrLDAPIdentityChanged = errors.New("LDAP identity changed during authentication")
 var ErrLDAPConfigVersion = errors.New("LDAP configuration version conflict")
 
 // Every administrative account mutation takes the same transaction-scoped lock
@@ -39,6 +42,91 @@ func requireAnotherEnabledAdmin(ctx context.Context, tx *gorm.DB, id uuid.UUID, 
 		return ErrLastEnabledAdmin
 	}
 	return nil
+}
+
+// SyncLDAPIdentity is the only existing-account LDAP login write path. It
+// shares the administrative mutation lock and rereads the identity under a row
+// lock so a slow LDAP bind cannot restore roles removed during authentication.
+// A profile-only refresh preserves sessions; changing role membership advances
+// the account version and revokes tokens carrying its previous privileges.
+func SyncLDAPIdentity(ctx context.Context, db *gorm.DB, id uuid.UUID, expectedVersion uint, displayName, email string, roleCodes []string) (model.User, error) {
+	if id == uuid.Nil || expectedVersion == 0 {
+		return model.User{}, ErrLDAPIdentityChanged
+	}
+	codes := make([]string, 0, len(roleCodes))
+	seen := make(map[string]bool, len(roleCodes))
+	for _, code := range roleCodes {
+		code = strings.TrimSpace(code)
+		if code != "" && !seen[code] {
+			codes = append(codes, code)
+			seen[code] = true
+		}
+	}
+	if len(codes) == 0 {
+		return model.User{}, ErrLDAPIdentityChanged
+	}
+	var result model.User
+	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockUserAdministration(tx); err != nil {
+			return err
+		}
+		var current model.User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Preload("Roles").First(&current, "id = ?", id).Error; err != nil {
+			return err
+		}
+		if current.Version != expectedVersion || !current.Enabled || current.AuthSource != "ldap" {
+			return ErrLDAPIdentityChanged
+		}
+		// Resolve roles again within the protected transaction. Never save the
+		// caller's preloaded User or role objects through ORM associations.
+		roles, err := (&GormUserStore{db: tx}).roleSet(ctx, codes)
+		if err != nil {
+			return err
+		}
+		oldRoles := make(map[uuid.UUID]bool, len(current.Roles))
+		wasAdmin := false
+		for _, role := range current.Roles {
+			oldRoles[role.ID] = true
+			wasAdmin = wasAdmin || role.Code == "system_admin"
+		}
+		changed := len(oldRoles) != len(roles)
+		for _, role := range roles {
+			changed = changed || !oldRoles[role.ID]
+		}
+		if wasAdmin && !seen["system_admin"] {
+			if err := requireAnotherEnabledAdmin(ctx, tx, id, expectedVersion); err != nil {
+				return err
+			}
+		}
+		fields := map[string]interface{}{"display_name": displayName, "email": email}
+		if changed {
+			fields["version"] = gorm.Expr("version + 1")
+		}
+		update := tx.Model(&model.User{}).Where("id = ? AND version = ? AND enabled = ? AND auth_source = ?", id, expectedVersion, true, "ldap").Updates(fields)
+		if update.Error != nil {
+			return update.Error
+		}
+		if update.RowsAffected != 1 {
+			return ErrLDAPIdentityChanged
+		}
+		if changed {
+			// Explicit join-table writes avoid GORM saving stale role/profile
+			// associations. All rows and the version change commit atomically.
+			if err := tx.Exec("DELETE FROM user_roles WHERE user_id = ?", id).Error; err != nil {
+				return err
+			}
+			for _, role := range roles {
+				if err := tx.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", id, role.ID).Error; err != nil {
+					return err
+				}
+			}
+			current.Version++
+		}
+		current.DisplayName, current.Email, current.Roles = displayName, email, roles
+		result = current
+		return nil
+	})
+	return result, err
 }
 
 type UserQuery struct {

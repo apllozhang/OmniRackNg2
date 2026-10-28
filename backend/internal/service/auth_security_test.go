@@ -138,3 +138,38 @@ func TestIssueTokenCannotRestoreStaleRolesOrIgnoreConcurrentAccountChange(t *tes
 		}
 	}
 }
+
+func TestLDAPSyncMapsConcurrentMutationToInvalidCredentials(t *testing.T) {
+	svc, mock := authMock(t)
+	id := uuid.New()
+	mock.ExpectBegin()
+	mock.ExpectExec(`SELECT pg_advisory_xact_lock`).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`SELECT .* FROM "users".*FOR UPDATE`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "version", "enabled", "auth_source"}).AddRow(id.String(), 5, true, "ldap"))
+	mock.ExpectQuery(`SELECT .* FROM "user_roles"`).WillReturnRows(sqlmock.NewRows([]string{"user_id", "role_id"}))
+	mock.ExpectRollback()
+	_, err := svc.syncLDAPIdentity(context.Background(), model.User{BaseModel: model.BaseModel{ID: id, Version: 4}},
+		LDAPIdentity{DisplayName: "directory name", Email: "test@example.invalid"}, []model.Role{{Code: "user"}})
+	if !errors.Is(err, ErrInvalidCredentials) || errors.Is(err, ErrAuthUnavailable) {
+		t.Fatalf("changed LDAP identity should be rejected without overwriting admin changes: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLDAPSyncKeepsDatabaseOutageRetryable(t *testing.T) {
+	svc, mock := authMock(t)
+	id := uuid.New()
+	mock.ExpectBegin()
+	mock.ExpectExec(`SELECT pg_advisory_xact_lock`).WillReturnError(errors.New("database temporarily offline"))
+	mock.ExpectRollback()
+	_, err := svc.syncLDAPIdentity(context.Background(), model.User{BaseModel: model.BaseModel{ID: id, Version: 4}},
+		LDAPIdentity{DisplayName: "directory name"}, []model.Role{{Code: "user"}})
+	if !errors.Is(err, ErrAuthUnavailable) {
+		t.Fatalf("LDAP synchronization database outage should remain retryable: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
