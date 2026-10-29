@@ -31,11 +31,11 @@ def array(name):
     return {"type": "array", "items": ref(name)}
 
 
-def listing(name, page_size=None):
+def listing(name, page_size=None, variable_size=False):
     result = obj(items=array(name))
     if page_size:
         result["properties"].update(total={"type": "integer"}, page={"type": "integer"},
-                                    pageSize={"type": "integer", "enum": [page_size]})
+                                    pageSize=({"type": "integer", "minimum": 1, "maximum": 100, "default": page_size} if variable_size else {"type": "integer", "enum": [page_size]}))
     return result
 
 
@@ -109,7 +109,7 @@ def response_contracts():
     put("AssetOperationsHandler", "Devices", listing("service.AssetOverview"))
     put("AssetOperationsHandler", "TerminalState", ref("service.TerminalRegistration"))
     put("AssetOperationsHandler", "PCHistory", listing("model.PCHandover", 50))
-    put("AssetOperationsHandler", "Audit", listing("model.AuditLog", 50))
+    put("AssetOperationsHandler", "Audit", listing("model.AuditLog", 50, True))
     put("AssetOperationsHandler", "Operators", obj(items={"type": "array", "items": obj(
         id={"type": "string", "format": "uuid"}, name=TEXT, canCheck=BOOL)}))
     put("AssetOperationsHandler", "Scan", obj(line=ref("model.AssetCheckLine"), duplicate=BOOL))
@@ -120,7 +120,7 @@ def response_contracts():
     put("NotificationHandler", "Settings Save", ref("service.NotificationView"))
     put("NotificationHandler", "ApprovalSettings SaveApprovalSettings", ref("service.ApprovalEmailSettings"))
     put("NotificationHandler", "Test TestApproval", ref("model.NotificationDelivery"))
-    put("NotificationHandler", "Deliveries", listing("model.NotificationDelivery", 20))
+    put("NotificationHandler", "Deliveries", listing("model.NotificationDelivery", 20, True))
     export = obj(format={"type": "string", "enum": ["cabinet-asset-export-v1"]},
                  generatedAt={"type": "string", "format": "date-time"},
                  devices=array("service.AssetOverview"))

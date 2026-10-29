@@ -47,7 +47,7 @@ export default defineConfig({
     },
     {
       name: browserProjectName,
-      testIgnore: [/auth\.setup\.ts/, /live-smoke\.spec\.ts/, /replica-live-pages\.spec\.ts/],
+      testIgnore: [/auth\.setup\.ts/, /live-smoke\.spec\.ts/, /replica-live-pages\.spec\.ts/, /table-workflows\.spec\.ts/],
       dependencies: ['auth'],
       use: {
         ...devices['Desktop Chrome'],
@@ -56,7 +56,7 @@ export default defineConfig({
     },
     ...(liveMode ? [{
       name: 'live-smoke',
-      testMatch: /(?:live-smoke|replica-live-pages)\.spec\.ts/,
+      testMatch: /(?:live-smoke|replica-live-pages|table-workflows)\.spec\.ts/,
       dependencies: ['auth'],
       use: {
         ...devices['Desktop Chrome'],

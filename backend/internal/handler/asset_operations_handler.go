@@ -558,25 +558,36 @@ func (h *AssetOperationsHandler) Export(c *gin.Context) {
 
 func (h *AssetOperationsHandler) Audit(c *gin.Context) {
 	page := queryInt(c, "page", 1)
-	if page < 1 {
-		page = 1
+	pageSize := queryInt(c, "pageSize", 50)
+	if page < 1 || page > service.MaxListPage || pageSize < 1 || pageSize > 100 {
+		response.Error(c, http.StatusBadRequest, "INVALID_RESOURCE", "page 需为 1–10000，pageSize 需为 1–100", nil)
+		return
 	}
-	if page > service.MaxListPage {
-		response.Error(c, http.StatusBadRequest, "INVALID_RESOURCE", "page 不能超过 10000", nil)
+	order, ok := tableOrder(c, c.Query("sortBy"), c.Query("sortOrder"), map[string]string{
+		"createdAt": "created_at", "action": "action", "resourceType": "resource_type", "requestId": "request_id",
+	}, "created_at DESC")
+	if !ok {
+		return
+	}
+	search, ok := tableSearch(c, c.Query("search"))
+	if !ok {
 		return
 	}
 	query := h.ops.DB.WithContext(c.Request.Context()).Model(&model.AuditLog{}).Where("resource_type IN ?", []string{
 		"asset_site", "device", "spare_spec", "spare_stock", "spare_minimum", "asset_check", "asset_check_line", "asset_reminder", "asset_operations",
 	})
+	if search != "%%" {
+		query = query.Where("action ILIKE ? OR resource_type ILIKE ? OR request_id ILIKE ?", search, search, search)
+	}
 	var total int64
 	if e := query.Count(&total).Error; e != nil {
 		writeResourceError(c, e)
 		return
 	}
 	items := []model.AuditLog{}
-	if e := query.Order("created_at DESC").Limit(50).Offset((page - 1) * 50).Find(&items).Error; e != nil {
+	if e := query.Order(order).Limit(pageSize).Offset((page - 1) * pageSize).Find(&items).Error; e != nil {
 		writeResourceError(c, e)
 		return
 	}
-	response.Success(c, gin.H{"items": items, "total": total, "page": page, "pageSize": 50})
+	response.Success(c, gin.H{"items": items, "total": total, "page": page, "pageSize": pageSize})
 }

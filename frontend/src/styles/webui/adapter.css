@@ -29,7 +29,7 @@ html .app-shell .main-content{background:var(--color-canvas);padding:32px}
 html .app-shell .main-content .page-header h1,html .app-shell .main-content .page-header h2,html .app-shell .main-content .ops-heading h1{color:var(--color-heading-accent);font-size:32px;font-weight:700}
 html .app-shell .main-content p,html .app-shell .main-content .ops-muted{color:var(--color-text-muted)}
 html .app-shell .main-content .el-card{background:var(--color-surface);border-color:var(--color-border-soft);border-radius:var(--radius-md);box-shadow:var(--shadow-sm)}
-html .app-shell .main-content .el-table{--el-table-bg-color:var(--color-surface);--el-table-tr-bg-color:var(--color-surface);--el-table-header-bg-color:var(--color-canvas);--el-table-border-color:var(--color-border-soft);--el-table-row-hover-bg-color:var(--color-purple-tint);--el-table-text-color:var(--color-text-primary);--el-table-header-text-color:var(--color-text-secondary);font-size:14px}
+html .app-shell .main-content .el-table,html .el-overlay .el-table{--el-table-bg-color:var(--color-surface);--el-table-tr-bg-color:var(--color-surface);--el-table-header-bg-color:var(--color-canvas);--el-table-border-color:var(--color-border-soft);--el-table-row-hover-bg-color:var(--color-purple-tint);--el-table-text-color:var(--color-text-primary);--el-table-header-text-color:var(--color-text-secondary);font-size:14px}
 html .app-shell .main-content .el-table th.el-table__cell{color:var(--color-text-secondary);font-weight:700}
 html .app-shell .main-content .el-form-item__label{color:var(--color-text-secondary);font-size:14px}
 .el-button{min-height:36px;font-family:var(--font-sans)}
@@ -60,3 +60,13 @@ html.dark .app-shell .main-content a,html.dark .el-button.is-link{color:var(--co
 html.dark .el-tag--warning{--el-tag-text-color:var(--status-warning-text);--el-tag-bg-color:color-mix(in srgb,var(--status-warning-graphic) 15%,var(--color-surface));--el-tag-border-color:var(--color-border)}
 html.dark .el-tag--danger{--el-tag-text-color:var(--status-danger-text);--el-tag-bg-color:color-mix(in srgb,var(--status-danger-graphic) 15%,var(--color-surface));--el-tag-border-color:var(--color-border)}
 html.dark .el-tag--success{--el-tag-text-color:var(--status-success-text);--el-tag-bg-color:color-mix(in srgb,var(--status-success-graphic) 15%,var(--color-surface));--el-tag-border-color:var(--color-border)}
+
+/* Sticky action columns can cover all data on narrow displays. Keep the full
+   table horizontally scrollable and release sticky columns only on phones. */
+@media(max-width:600px){
+ html .el-table .el-table__cell.el-table-fixed-column--left,
+ html .el-table .el-table__cell.el-table-fixed-column--right{position:static!important;left:auto!important;right:auto!important}
+ html .el-table .el-table__cell.el-table-fixed-column--left::before,
+ html .el-table .el-table__cell.el-table-fixed-column--right::before{display:none!important}
+ html .el-table .el-scrollbar__bar.is-horizontal{display:block;opacity:1;height:8px}
+}

@@ -17,6 +17,8 @@ var ErrUPositionConflict = errors.New("rack u position conflict")
 
 // DeviceQuery defines the supported device ledger filters.
 type DeviceQuery struct {
+	SortBy          string
+	SortOrder       string
 	Scope           string
 	Page            int
 	PageSize        int
@@ -166,6 +168,10 @@ func (s *GormDeviceStore) DeleteDeviceType(ctx context.Context, id uuid.UUID, ex
 }
 
 func (s *GormDeviceStore) ListDevices(ctx context.Context, query DeviceQuery) ([]model.Device, int64, error) {
+	order, err := DeviceOrder(query)
+	if err != nil {
+		return nil, 0, err
+	}
 	db := s.db.WithContext(ctx).Model(&model.Device{})
 	if query.Scope == "PC" {
 		db = db.Where("type_id IN (SELECT id FROM device_types WHERE category = ? AND deleted_at IS NULL)", model.DeviceCategoryPC)
@@ -190,8 +196,8 @@ func (s *GormDeviceStore) ListDevices(ctx context.Context, query DeviceQuery) ([
 		return nil, 0, err
 	}
 	var items []model.Device
-	err := db.Preload("Type").Preload("CurrentPosition", "deleted_at IS NULL").Preload("CurrentPosition.Rack").
-		Order("created_at DESC").Offset((query.Page - 1) * query.PageSize).Limit(query.PageSize).Find(&items).Error
+	err = db.Preload("Type").Preload("CurrentPosition", "deleted_at IS NULL").Preload("CurrentPosition.Rack").
+		Order(order).Offset((query.Page - 1) * query.PageSize).Limit(query.PageSize).Find(&items).Error
 	return items, total, err
 }
 

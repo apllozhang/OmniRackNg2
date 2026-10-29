@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { useColumnWidths } from '@/features/table/useColumnWidths'
+
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type TableInstance } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { ops, listOps, usageLabels, exportSheet, printAssetLabels, errorMessage } from '@/api/asset-ops'
 import type { Device } from '@/types/device'
 import '@/styles/asset-ops.css'
+import TableSortHeader from '@/components/TableSortHeader.vue'
+import { useDebouncedValue, useTableView, type TableOrder } from '@/features/table/useTableView'
 
 type Operation = 'ISSUE' | 'RETURN' | 'TRANSFER' | 'REPAIR' | 'RESTORE' | 'RETIRE' | 'REGISTER'
 interface Custody { usageStatus: string; assignee: string; department: string; siteId?: string | null; siteName?: string; position: string }
@@ -25,10 +29,21 @@ const assetTable = ref<TableInstance>()
 let historyRequest = 0, loadRequest = 0
 function clearSelection() { assetTable.value?.clearSelection(); selected.value = [] }
 const terminalTypes = computed(() => [...new Map(assets.value.filter(a => a.device.type).map(a => [a.device.type!.id, a.device.type!])).values()])
+const query = useDebouncedValue(search)
 const filtered = computed(() => assets.value.filter(a => {
-  const q = search.value.trim().toLowerCase()
+  const q = query.value.trim().toLowerCase()
   return (!q || [a.device.name, a.device.code, a.device.serialNumber, a.device.assetNumber, a.profile.assignee, a.profile.department].some(v => (v || '').toLowerCase().includes(q))) && (!status.value || displayStatus(a) === status.value) && (!siteId.value || a.profile.siteId === siteId.value) && (!typeId.value || a.device.typeId === typeId.value)
 }))
+const { page, pageSize, sortKey, sortOrder, sortedRows, total, pageRows, setSort, nextSort } = useTableView(filtered, 20, { status: row => usageLabels[displayStatus(row)] || displayStatus(row), location: row => location(row.profile), configuration: row => row.profile.cpu || row.device.modelNumber || row.device.specification || '' })
+watch([page, pageSize, sortKey, sortOrder, status, siteId, typeId, () => query.value], clearSelection)
+function onSortChange(event: { prop: string; order: TableOrder }) { setSort(event.prop || '', event.order) }
+function sortBy(key: string) {
+  const order = nextSort(key)
+  setSort(key, order)
+  if (order) assetTable.value?.sort(key, order)
+  else assetTable.value?.clearSort()
+}
+function resetFilters() { query.value = ''; search.value = ''; status.value = ''; siteId.value = ''; typeId.value = ''; clearSelection() }
 function displayStatus(a: PCAsset) { return a.device.lifecycleStatus === 'SCRAPPED' ? 'RETIRED' : a.profile.usageStatus }
 function count(state: string) { return assets.value.filter(a => displayStatus(a) === state).length }
 async function load() {
@@ -103,12 +118,13 @@ async function exportHistory() {
   finally { exporting.value = false }
 }
 function exportAssets() {
-  const rows = selected.value.length ? selected.value : filtered.value
+  const rows = selected.value.length ? selected.value : sortedRows.value
   if (!rows.length) { ElMessage.info('没有可导出的终端'); return }
   exportSheet('终端台账', rows.map(a => ({ 设备编码: a.device.code, 名称: a.device.name, 终端类型: a.device.type?.name, 资产编号: a.device.assetNumber, SN: a.device.serialNumber, 型号: a.device.modelNumber, 状态: usageLabels[displayStatus(a)], 使用人: a.profile.assignee, 部门: a.profile.department, 位置: location(a.profile), CPU: a.profile.cpu, '内存GB': a.profile.memoryGb, 硬盘: a.profile.disk, 操作系统: a.profile.operatingSystem, 保修: a.warranty.label })))
 }
 async function labels() { try { await printAssetLabels('device', selected.value.map(a => a.device)) } catch (e) { ElMessage.error(errorMessage(e)) } }
 onMounted(load)
+const { columnWidths, resizeColumn } = useColumnWidths({"device.name": 205, "device.type.name": 130, "status": 110, "profile.assignee": 160, "location": 200, "configuration": 220})
 </script>
 
 <template>
@@ -117,15 +133,17 @@ onMounted(load)
     <div class="ops-metrics"><div><span>终端总数</span><b>{{ assets.length }}</b></div><div><span>在库待领用</span><b>{{ count('IDLE') }}</b></div><div><span>使用中</span><b>{{ count('IN_USE') }}</b></div><div><span>维修中</span><b>{{ count('REPAIR') }}</b></div></div>
     <el-card shadow="never" v-loading="loading">
       <div class="ops-toolbar"><el-input v-model="search" clearable placeholder="名称 / 编码 / SN / 使用人 / 部门" @input="clearSelection"/><el-select v-model="typeId" clearable placeholder="终端类型" @change="clearSelection"><el-option v-for="type in terminalTypes" :key="type.id" :label="type.name" :value="type.id"/></el-select><el-select v-model="status" clearable placeholder="使用状态" @change="clearSelection"><el-option v-for="(label,key) in usageLabels" :key="key" :label="label" :value="key"/></el-select><el-select v-model="siteId" clearable placeholder="所在位置" @change="clearSelection"><el-option v-for="site in sites" :key="site.id" :label="site.region+' / '+site.name" :value="site.id"/></el-select></div>
-      <div class="ops-toolbar between"><span class="ops-muted">共 {{ filtered.length }} 件；已选 {{ selected.length }} 件。故障归还自动进入维修中。</span><div><el-button :disabled="!selected.length" @click="labels">打印二维码</el-button><el-button @click="exportAssets">{{ selected.length ? '导出勾选终端' : '导出筛选终端' }}</el-button><el-button @click="router.push('/asset-operations?category=PC')">配置与保修</el-button></div></div>
-      <el-table ref="assetTable" :data="filtered" row-key="device.id" @selection-change="selected=$event">
-        <el-table-column type="selection" width="45"/><el-table-column label="终端 / SN" min-width="205"><template #default="{row}"><b>{{ row.device.name }}</b><small class="ops-block ops-mono">{{ row.device.code }} · {{ row.device.serialNumber || '无 SN 时使用设备编码' }}</small></template></el-table-column>
-        <el-table-column prop="device.type.name" label="终端类型" min-width="130"/><el-table-column label="使用状态" width="110"><template #default="{row}"><el-tag :type="displayStatus(row)==='IN_USE'?'success':displayStatus(row)==='REPAIR'?'warning':'info'">{{ usageLabels[displayStatus(row)] || '待核实' }}</el-tag></template></el-table-column>
-        <el-table-column label="使用人 / 部门" min-width="160"><template #default="{row}">{{ row.profile.assignee || '未分配' }}<small class="ops-block ops-muted">{{ row.profile.department }}</small></template></el-table-column>
-        <el-table-column label="所在位置 / 工位" min-width="200"><template #default="{row}">{{ location(row.profile) }}</template></el-table-column>
-        <el-table-column label="配置 / 保修" min-width="220"><template #default="{row}">{{ row.profile.cpu || row.device.modelNumber || row.device.specification || '—' }}<small class="ops-block ops-muted"><template v-if="row.profile.memoryGb">{{ row.profile.memoryGb }}GB · </template>{{ row.profile.disk ? row.profile.disk + ' · ' : '' }}{{ row.warranty.label }}</small></template></el-table-column>
+      <div class="ops-toolbar between"><span class="ops-muted">共 {{ filtered.length }} 件；已选 {{ selected.length }} 件。故障归还自动进入维修中。</span><div><el-button :disabled="!selected.length || search !== query" @click="labels">打印二维码</el-button><el-button :disabled="search !== query" @click="exportAssets">{{ selected.length ? '导出勾选终端' : '导出筛选终端' }}</el-button><el-button @click="router.push('/asset-operations?category=PC')">配置与保修</el-button></div></div>
+      <el-table :aria-busy="loading||search!==query" ref="assetTable" :data="pageRows" row-key="device.id" @sort-change="onSortChange" @selection-change="selected=$event">
+        <el-table-column type="selection" width="45"/><el-table-column label="终端 / SN" prop="device.name" sortable="custom" :width="columnWidths['device.name']"><template #header><TableSortHeader label="终端 / SN" :width="columnWidths['device.name']" @resize="resizeColumn('device.name', $event)" @sort="sortBy('device.name')"/></template><template #default="{row}"><b>{{ row.device.name }}</b><small class="ops-block ops-mono">{{ row.device.code }} · {{ row.device.serialNumber || '无 SN 时使用设备编码' }}</small></template></el-table-column>
+        <el-table-column prop="device.type.name" label="终端类型" sortable="custom" :width="columnWidths['device.type.name']"><template #header><TableSortHeader label="终端类型" :width="columnWidths['device.type.name']" @resize="resizeColumn('device.type.name', $event)" @sort="sortBy('device.type.name')"/></template></el-table-column><el-table-column label="使用状态" prop="status" sortable="custom" :width="columnWidths['status']"><template #header><TableSortHeader label="使用状态" :width="columnWidths['status']" @resize="resizeColumn('status', $event)" @sort="sortBy('status')"/></template><template #default="{row}"><el-tag :type="displayStatus(row)==='IN_USE'?'success':displayStatus(row)==='REPAIR'?'warning':'info'">{{ usageLabels[displayStatus(row)] || '待核实' }}</el-tag></template></el-table-column>
+        <el-table-column label="使用人 / 部门" prop="profile.assignee" sortable="custom" :width="columnWidths['profile.assignee']"><template #header><TableSortHeader label="使用人 / 部门" :width="columnWidths['profile.assignee']" @resize="resizeColumn('profile.assignee', $event)" @sort="sortBy('profile.assignee')"/></template><template #default="{row}">{{ row.profile.assignee || '未分配' }}<small class="ops-block ops-muted">{{ row.profile.department }}</small></template></el-table-column>
+        <el-table-column label="所在位置 / 工位" prop="location" sortable="custom" :width="columnWidths['location']"><template #header><TableSortHeader label="所在位置 / 工位" :width="columnWidths['location']" @resize="resizeColumn('location', $event)" @sort="sortBy('location')"/></template><template #default="{row}">{{ location(row.profile) }}</template></el-table-column>
+        <el-table-column label="配置 / 保修" prop="configuration" sortable="custom" :width="columnWidths['configuration']"><template #header><TableSortHeader label="配置 / 保修" :width="columnWidths['configuration']" @resize="resizeColumn('configuration', $event)" @sort="sortBy('configuration')"/></template><template #default="{row}">{{ row.profile.cpu || row.device.modelNumber || row.device.specification || '—' }}<small class="ops-block ops-muted"><template v-if="row.profile.memoryGb">{{ row.profile.memoryGb }}GB · </template>{{ row.profile.disk ? row.profile.disk + ' · ' : '' }}{{ row.warranty.label }}</small></template></el-table-column>
         <el-table-column label="操作" width="340" fixed="right"><template #default="{row}"><template v-if="canWrite"><el-button v-for="action in availableActions(row)" :key="action" link :type="action==='RETIRE'?'danger':['RETURN','REPAIR'].includes(action)?'warning':'primary'" @click="open(row,action)">{{ operationLabels[action] }}</el-button></template><el-button link @click="showHistory(row)">使用履历</el-button></template></el-table-column>
+        <template #empty><el-empty :description="assets.length ? '没有匹配的终端，请调整或清除筛选' : '暂无终端，请先登记终端档案'"><el-button v-if="assets.length" @click="resetFilters">清除筛选</el-button></el-empty></template>
       </el-table>
+      <el-pagination v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[20,50,100]" :total="total" layout="total, sizes, prev, pager, next" aria-label="终端主台账分页"/>
     </el-card>
     <el-dialog v-model="dialog" :title="'确认终端'+operationLabels[operation]" width="min(620px,95vw)" :close-on-click-modal="!saving" :close-on-press-escape="!saving" :show-close="!saving">
       <el-alert :title="`${current?.device.name} · SN：${current?.device.serialNumber || '未登记'}`" type="info" :closable="false"/><p>当前使用人：{{ current?.profile.assignee || '未分配' }}。确认后立即更新台账并保留使用履历。</p>

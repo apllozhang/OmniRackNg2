@@ -28,7 +28,7 @@
 | POST | `/api/v1/approvals/:id/reject` | `AdminHandler.Reject` | `system_admin` | JSON body | — | `backend/internal/handler/admin_handler.go:168` |
 | GET | `/api/v1/asset-ops/access/settings` | `AssetOperationsHandler.ScanAccess` | `asset_role_read_or_manager_write` | — | — | `backend/internal/handler/scan_access_handler.go:9` |
 | PUT | `/api/v1/asset-ops/access/settings` | `AssetOperationsHandler.SaveScanAccess` | `system_admin` | JSON body | — | `backend/internal/handler/scan_access_handler.go:17` |
-| GET | `/api/v1/asset-ops/audit` | `AssetOperationsHandler.Audit` | `asset_role_read_or_manager_write` | — | page | `backend/internal/handler/asset_operations_handler.go:559` |
+| GET | `/api/v1/asset-ops/audit` | `AssetOperationsHandler.Audit` | `asset_role_read_or_manager_write` | — | page, pageSize, search, sortBy, sortOrder | `backend/internal/handler/asset_operations_handler.go:559` |
 | GET | `/api/v1/asset-ops/checks` | `AssetOperationsHandler.Checks` | `asset_role_read_or_manager_write` | — | — | `backend/internal/handler/asset_operations_handler.go:291` |
 | POST | `/api/v1/asset-ops/checks` | `AssetOperationsHandler.CreateCheck` | `asset_role_read_or_manager_write` | JSON body | — | `backend/internal/handler/asset_operations_handler.go:299` |
 | POST | `/api/v1/asset-ops/checks/:id/close` | `AssetOperationsHandler.Close` | `asset_role_read_or_manager_write` | — | — | `backend/internal/handler/asset_operations_handler.go:362` |
@@ -52,8 +52,8 @@
 | GET | `/api/v1/asset-ops/movements` | `AssetOperationsHandler.Movements` | `asset_role_read_or_manager_write` | — | stockId | `backend/internal/handler/asset_operations_handler.go:229` |
 | GET | `/api/v1/asset-ops/notifications/approval-settings` | `NotificationHandler.ApprovalSettings` | `system_admin` | — | — | `backend/internal/handler/notification_handler.go:12` |
 | PUT | `/api/v1/asset-ops/notifications/approval-settings` | `NotificationHandler.SaveApprovalSettings` | `system_admin` | JSON body | — | `backend/internal/handler/notification_handler.go:21` |
-| POST | `/api/v1/asset-ops/notifications/approval-test` | `NotificationHandler.TestApproval` | `system_admin` | JSON body | — | `backend/internal/handler/notification_handler.go:102` |
-| GET | `/api/v1/asset-ops/notifications/deliveries` | `NotificationHandler.Deliveries` | `system_admin` | — | page | `backend/internal/handler/notification_handler.go:80` |
+| POST | `/api/v1/asset-ops/notifications/approval-test` | `NotificationHandler.TestApproval` | `system_admin` | JSON body | — | `backend/internal/handler/notification_handler.go:116` |
+| GET | `/api/v1/asset-ops/notifications/deliveries` | `NotificationHandler.Deliveries` | `system_admin` | — | page, pageSize, search, sortBy, sortOrder | `backend/internal/handler/notification_handler.go:80` |
 | GET | `/api/v1/asset-ops/notifications/settings` | `NotificationHandler.Settings` | `system_admin` | — | — | `backend/internal/handler/notification_handler.go:39` |
 | PUT | `/api/v1/asset-ops/notifications/settings` | `NotificationHandler.Save` | `system_admin` | JSON body | — | `backend/internal/handler/notification_handler.go:47` |
 | POST | `/api/v1/asset-ops/notifications/test` | `NotificationHandler.Test` | `system_admin` | JSON body | — | `backend/internal/handler/notification_handler.go:60` |
@@ -88,15 +88,15 @@
 | POST | `/api/v1/device-types` | `DeviceHandler.CreateDeviceType` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:34` |
 | DELETE | `/api/v1/device-types/:id` | `DeviceHandler.DeleteDeviceType` | `authenticated_legacy_policy` | — | version | `backend/internal/handler/device_handler.go:66` |
 | PUT | `/api/v1/device-types/:id` | `DeviceHandler.UpdateDeviceType` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:48` |
-| GET | `/api/v1/devices` | `DeviceHandler.ListDevices` | `authenticated_legacy_policy` | — | lifecycleStatus, page, pageSize, rackId, scope, search, typeId | `backend/internal/handler/device_handler.go:82` |
-| POST | `/api/v1/devices` | `DeviceHandler.CreateDevice` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:132` |
-| DELETE | `/api/v1/devices/:id` | `DeviceHandler.DeleteDevice` | `authenticated_legacy_policy` | — | version | `backend/internal/handler/device_handler.go:166` |
-| GET | `/api/v1/devices/:id` | `DeviceHandler.GetDevice` | `authenticated_legacy_policy` | — | — | `backend/internal/handler/device_handler.go:114` |
-| PUT | `/api/v1/devices/:id` | `DeviceHandler.UpdateDevice` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:148` |
-| POST | `/api/v1/devices/:id/assign` | `DeviceHandler.Assign` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:182` |
-| POST | `/api/v1/devices/:id/decommission` | `DeviceHandler.Decommission` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:214` |
-| GET | `/api/v1/devices/:id/history` | `DeviceHandler.History` | `authenticated_legacy_policy` | — | — | `backend/internal/handler/device_handler.go:232` |
-| POST | `/api/v1/devices/:id/move` | `DeviceHandler.Move` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:186` |
+| GET | `/api/v1/devices` | `DeviceHandler.ListDevices` | `authenticated_legacy_policy` | — | lifecycleStatus, page, pageSize, rackId, scope, search, sortBy, sortOrder, typeId | `backend/internal/handler/device_handler.go:82` |
+| POST | `/api/v1/devices` | `DeviceHandler.CreateDevice` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:134` |
+| DELETE | `/api/v1/devices/:id` | `DeviceHandler.DeleteDevice` | `authenticated_legacy_policy` | — | version | `backend/internal/handler/device_handler.go:168` |
+| GET | `/api/v1/devices/:id` | `DeviceHandler.GetDevice` | `authenticated_legacy_policy` | — | — | `backend/internal/handler/device_handler.go:116` |
+| PUT | `/api/v1/devices/:id` | `DeviceHandler.UpdateDevice` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:150` |
+| POST | `/api/v1/devices/:id/assign` | `DeviceHandler.Assign` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:184` |
+| POST | `/api/v1/devices/:id/decommission` | `DeviceHandler.Decommission` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:216` |
+| GET | `/api/v1/devices/:id/history` | `DeviceHandler.History` | `authenticated_legacy_policy` | — | — | `backend/internal/handler/device_handler.go:234` |
+| POST | `/api/v1/devices/:id/move` | `DeviceHandler.Move` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:188` |
 | DELETE | `/api/v1/pdu-connections/:id` | `PDUHandler.Disconnect` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/pdu_handler.go:28` |
 | DELETE | `/api/v1/pdu-sockets/:id` | `PDUHandler.DeleteSocket` | `authenticated_legacy_policy` | — | version | `backend/internal/handler/pdu_handler.go:25` |
 | PUT | `/api/v1/pdu-sockets/:id` | `PDUHandler.UpdateSocket` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/pdu_handler.go:24` |
@@ -118,14 +118,14 @@
 | GET | `/api/v1/racks/:rackId/pdu-connections` | `PDUHandler.ListConnections` | `authenticated_legacy_policy` | — | — | `backend/internal/handler/pdu_handler.go:26` |
 | GET | `/api/v1/racks/:rackId/pdus` | `PDUHandler.List` | `authenticated_legacy_policy` | — | — | `backend/internal/handler/pdu_handler.go:17` |
 | POST | `/api/v1/racks/:rackId/pdus` | `PDUHandler.Create` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/pdu_handler.go:18` |
-| GET | `/api/v1/racks/:rackId/u-layout` | `DeviceHandler.RackLayout` | `authenticated_legacy_policy` | — | — | `backend/internal/handler/device_handler.go:245` |
+| GET | `/api/v1/racks/:rackId/u-layout` | `DeviceHandler.RackLayout` | `authenticated_legacy_policy` | — | — | `backend/internal/handler/device_handler.go:247` |
 | GET | `/api/v1/resource-tree` | `ResourceHandler.Tree` | `authenticated_legacy_policy` | — | — | `backend/internal/handler/resource_handler.go:116` |
 | DELETE | `/api/v1/rooms/:id` | `ResourceHandler.DeleteRoom` | `authenticated_legacy_policy` | — | version | `backend/internal/handler/resource_handler.go:211` |
 | PUT | `/api/v1/rooms/:id` | `ResourceHandler.UpdateRoom` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/resource_handler.go:193` |
 | POST | `/api/v1/rooms/:roomId/copy` | `ResourceHandler.CopyRoom` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/resource_handler.go:282` |
 | POST | `/api/v1/rooms/:roomId/move` | `ResourceHandler.MoveRoom` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/resource_handler.go:312` |
-| POST | `/api/v1/rooms/:roomId/rack-diagram-import/commit` | `DeviceHandler.CommitRackDiagramImport` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:277` |
-| POST | `/api/v1/rooms/:roomId/rack-diagram-import/validate` | `DeviceHandler.ValidateRackDiagramImport` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:258` |
+| POST | `/api/v1/rooms/:roomId/rack-diagram-import/commit` | `DeviceHandler.CommitRackDiagramImport` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:279` |
+| POST | `/api/v1/rooms/:roomId/rack-diagram-import/validate` | `DeviceHandler.ValidateRackDiagramImport` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/device_handler.go:260` |
 | POST | `/api/v1/rooms/:roomId/racks` | `ResourceHandler.CreateRack` | `authenticated_legacy_policy` | JSON body | — | `backend/internal/handler/resource_handler.go:227` |
 | GET | `/api/v1/settings/operation-policy` | `AdminHandler.GetPolicy` | `system_admin` | — | — | `backend/internal/handler/admin_handler.go:138` |
 | PUT | `/api/v1/settings/operation-policy` | `AdminHandler.UpdatePolicy` | `system_admin` | JSON body | — | `backend/internal/handler/admin_handler.go:146` |

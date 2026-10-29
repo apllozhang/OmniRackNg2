@@ -1,4 +1,4 @@
-import ElementPlus, { ElFormItem, ElInput, ElRadioGroup, ElSelect } from 'element-plus'
+import ElementPlus, { ElFormItem, ElInput, ElRadioGroup, ElSelect, ElPagination } from 'element-plus'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import PCAssetsView from './PCAssetsView.vue'
@@ -107,4 +107,42 @@ it('does not offer retirement while the terminal is still assigned',async()=>{
   const w=await render()
   expect(w.findAll('button').some(b=>b.text()==='报废')).toBe(false)
   expect(w.findAll('button').some(b=>b.text()==='归还')).toBe(true)
+})
+
+
+it('paginates the main ledger, sorts all rows before paging, and exports the whole filtered result', async () => {
+  const rows = Array.from({ length: 61 }, (_, i) => { const n = 61 - i; return { ...structuredClone(pc), device: { ...pc.device, id: `pc-${n}`, code: `PC-${n}`, name: `终端${n}` } } })
+  api.list.mockImplementation(async (path: string) => path === 'sites' ? [] : rows)
+  const w = await render()
+  const firstName = () => w.find('.el-table__body-wrapper .el-table__row b').text()
+  expect(w.findAll('.el-table__body-wrapper .el-table__row')).toHaveLength(20)
+  expect(firstName()).toBe('终端61')
+  await w.get('button[aria-label="按终端 / SN排序"]').trigger('click'); await flushPromises()
+  expect(firstName()).toBe('终端1')
+  const paging = w.findAllComponents(ElPagination).find(p => p.attributes('aria-label') === '终端主台账分页')!
+  paging.vm.$emit('update:current-page', 2); await flushPromises()
+  expect(firstName()).toBe('终端21')
+  await w.findAll('button').find(b => b.text() === '导出筛选终端')!.trigger('click')
+  expect(api.export.mock.calls[0]![1]).toHaveLength(61)
+  expect(api.export.mock.calls[0]![1][0].名称).toBe('终端1')
+  await w.get('button[aria-label="按终端 / SN排序"]').trigger('click'); await flushPromises()
+  expect(firstName()).toBe('终端61'); expect(paging.props('currentPage')).toBe(1)
+  await w.get('button[aria-label="按终端 / SN排序"]').trigger('click'); await flushPromises()
+  expect(firstName()).toBe('终端61')
+})
+it('debounces ledger filtering, resets the page and provides a working empty-state reset', async () => {
+  const rows = Array.from({ length: 61 }, (_, i) => ({ ...structuredClone(pc), device: { ...pc.device, id: `pc-${i}`, name: `终端${i}` } }))
+  api.list.mockImplementation(async (path: string) => path === 'sites' ? [] : rows)
+  const w = await render()
+  const paging = w.findAllComponents(ElPagination).find(p => p.attributes('aria-label') === '终端主台账分页')!
+  paging.vm.$emit('update:current-page', 3); await flushPromises()
+  const input = w.get('input[placeholder="名称 / 编码 / SN / 使用人 / 部门"]')
+  await input.setValue('不存在的终端')
+  expect(w.findAll('button').find(b => b.text() === '导出筛选终端')!.attributes('disabled')).toBeDefined()
+  await new Promise(resolve => setTimeout(resolve, 330)); await flushPromises()
+  expect(paging.props('currentPage')).toBe(1)
+  expect(w.findAll('.el-table__body-wrapper .el-table__row')).toHaveLength(0)
+  await w.findAll('button').find(b => b.text() === '清除筛选')!.trigger('click'); await flushPromises()
+  expect(paging.props('total')).toBe(61)
+  expect(w.findAll('.el-table__body-wrapper .el-table__row')).toHaveLength(20)
 })

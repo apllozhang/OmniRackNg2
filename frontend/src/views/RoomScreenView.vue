@@ -1186,4 +1186,7 @@ onBeforeUnmount(() => {
 .screen-page .canvas-search-button { min-width: 48px; }
 .screen-page .device-block.search-hit { z-index: 4; outline: 2px solid #ffe08a; box-shadow: 0 0 0 3px rgba(255, 224, 138, .22), 0 0 18px rgba(255, 224, 138, .75); animation: device-search-hit 1.1s ease-in-out infinite alternate; }
 @keyframes device-search-hit { from { filter: brightness(1); } to { filter: brightness(1.45); } }
+/* Preserve the data-center canvas at its readable size while containing phone
+   panning inside the screen, so teleported dialogs use the actual viewport. */
+@media(max-width:1100px){.screen-page{min-width:0;max-width:100vw;overflow-x:auto}.visual-area{flex:0 0 800px;box-sizing:border-box}}
 </style>

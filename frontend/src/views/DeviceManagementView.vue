@@ -5,10 +5,10 @@
       <div class="actions"><el-button :loading="loading" @click="refreshAll">刷新</el-button><el-button :disabled="total >= 3000 || !activeTypes.length" :loading="deviceImportLoading" @click="openDeviceImport">批量导入</el-button><el-button :disabled="deviceLoading" :loading="deviceExportLoading" @click="openDeviceExport">导出设备信息</el-button><el-button type="primary" :disabled="total >= 3000" @click="openDevice()">新增设备</el-button></div>
     </div>
     <el-row v-if="scope!=='PC'" :gutter="16" class="summary-row">
-      <el-col :span="6"><el-card shadow="never"><div class="summary"><span>设备总数</span><strong>{{ total }}</strong><small>/ 3000</small></div></el-card></el-col>
-      <el-col :span="6"><el-card shadow="never"><div class="summary"><span>当前页已上架</span><strong>{{ devices.filter(i => i.currentPosition).length }}</strong></div></el-card></el-col>
-      <el-col :span="6"><el-card shadow="never"><div class="summary"><span>设备类型</span><strong>{{ types.length }}</strong></div></el-card></el-col>
-      <el-col :span="6"><el-card shadow="never"><div class="summary"><span>未上架设备</span><strong>{{ devices.filter(i => !i.currentPosition).length }}</strong></div></el-card></el-col>
+      <el-col :xs="12" :sm="12" :md="6"><el-card shadow="never"><div class="summary"><span>设备总数</span><strong>{{ total }}</strong><small>/ 3000</small></div></el-card></el-col>
+      <el-col :xs="12" :sm="12" :md="6"><el-card shadow="never"><div class="summary"><span>当前页已上架</span><strong>{{ devices.filter(i => i.currentPosition).length }}</strong></div></el-card></el-col>
+      <el-col :xs="12" :sm="12" :md="6"><el-card shadow="never"><div class="summary"><span>设备类型</span><strong>{{ types.length }}</strong></div></el-card></el-col>
+      <el-col :xs="12" :sm="12" :md="6"><el-card shadow="never"><div class="summary"><span>未上架设备</span><strong>{{ devices.filter(i => !i.currentPosition).length }}</strong></div></el-card></el-col>
     </el-row>
 
     <el-card shadow="never">
@@ -21,16 +21,16 @@
             <el-button type="primary" @click="search">查询</el-button><el-button @click="resetSearch">重置</el-button>
           </div>
           <div class="selection-bar"><span>已勾选 {{ selectedDevices.length }} 台（支持跨页）</span><el-button link :disabled="!selectedDevices.length" @click="clearDeviceSelection">清空勾选</el-button><span v-if="filtersPending" class="muted">筛选条件已修改，查询或导出时生效</span></div>
-          <el-table ref="deviceTable" v-loading="deviceLoading" :data="devices" row-key="id" stripe @selection-change="onDeviceSelection">
+          <el-alert v-if="deviceLoadFailed" title="设备加载失败，当前行可能不属于最新查询；请刷新重试" type="error" :closable="false"/><el-table @sort-change="onDeviceSortChange" :aria-busy="deviceLoading||filters.search!==appliedFilters.search" ref="deviceTable" v-loading="deviceLoading" :data="devices" row-key="id" stripe @selection-change="onDeviceSelection">
             <el-table-column type="selection" :reserve-selection="true" width="48" fixed="left" />
-            <el-table-column prop="code" label="编码" min-width="120" fixed="left" />
-            <el-table-column prop="name" label="设备名称" min-width="150" show-overflow-tooltip />
-            <el-table-column label="类型" min-width="110"><template #default="{ row }">{{ row.type?.name ?? '-' }}</template></el-table-column>
-            <el-table-column prop="assetNumber" label="资产编号" min-width="120" />
-            <el-table-column v-if="scope!=='PC'" label="状态" width="105"><template #default="{ row }"><el-tag :type="statusType(row.lifecycleStatus)">{{ statusLabel(row.lifecycleStatus) }}</el-tag></template></el-table-column>
-            <el-table-column v-if="scope!=='PC'" label="高度" width="70"><template #default="{ row }">{{ row.heightU }}U</template></el-table-column>
-            <el-table-column v-if="scope!=='PC'" label="当前位置" min-width="200"><template #default="{ row }"><span v-if="row.currentPosition">{{ rackName(row.currentPosition.rackId) }} · {{ row.currentPosition.startU }}-{{ row.currentPosition.endU }}U</span><span v-else class="muted">未上架</span></template></el-table-column>
-            <el-table-column prop="managementIp" label="管理 IP" min-width="120" />
+            <el-table-column label="编码" fixed="left"  prop="code" sortable="custom" :width="deviceColumnWidths['code']"><template #header><TableSortHeader label="编码" :width="deviceColumnWidths['code']" @sort="sortDeviceBy('code')" @resize="resizeDeviceColumn('code',$event)"/></template></el-table-column>
+            <el-table-column label="设备名称" show-overflow-tooltip  prop="name" sortable="custom" :width="deviceColumnWidths['name']"><template #header><TableSortHeader label="设备名称" :width="deviceColumnWidths['name']" @sort="sortDeviceBy('name')" @resize="resizeDeviceColumn('name',$event)"/></template></el-table-column>
+            <el-table-column label="类型" prop="typeName" sortable="custom" :width="deviceColumnWidths['typeName']"><template #header><TableSortHeader label="类型" :width="deviceColumnWidths['typeName']" @sort="sortDeviceBy('typeName')" @resize="resizeDeviceColumn('typeName',$event)"/></template><template #default="{ row }">{{ row.type?.name ?? '-' }}</template></el-table-column>
+            <el-table-column label="资产编号"  prop="assetNumber" sortable="custom" :width="deviceColumnWidths['assetNumber']"><template #header><TableSortHeader label="资产编号" :width="deviceColumnWidths['assetNumber']" @sort="sortDeviceBy('assetNumber')" @resize="resizeDeviceColumn('assetNumber',$event)"/></template></el-table-column>
+            <el-table-column v-if="scope!=='PC'" label="状态" prop="lifecycleStatus" sortable="custom" :width="deviceColumnWidths['lifecycleStatus']"><template #header><TableSortHeader label="状态" :width="deviceColumnWidths['lifecycleStatus']" @sort="sortDeviceBy('lifecycleStatus')" @resize="resizeDeviceColumn('lifecycleStatus',$event)"/></template><template #default="{ row }"><el-tag :type="statusType(row.lifecycleStatus)">{{ statusLabel(row.lifecycleStatus) }}</el-tag></template></el-table-column>
+            <el-table-column v-if="scope!=='PC'" label="高度" prop="heightU" sortable="custom" :width="deviceColumnWidths['heightU']"><template #header><TableSortHeader label="高度" :width="deviceColumnWidths['heightU']" @sort="sortDeviceBy('heightU')" @resize="resizeDeviceColumn('heightU',$event)"/></template><template #default="{ row }">{{ row.heightU }}U</template></el-table-column>
+            <el-table-column v-if="scope!=='PC'" label="当前位置" prop="location" sortable="custom" :width="deviceColumnWidths['location']"><template #header><TableSortHeader label="当前位置" :width="deviceColumnWidths['location']" @sort="sortDeviceBy('location')" @resize="resizeDeviceColumn('location',$event)"/></template><template #default="{ row }"><span v-if="row.currentPosition">{{ rackName(row.currentPosition.rackId) }} · {{ row.currentPosition.startU }}-{{ row.currentPosition.endU }}U</span><span v-else class="muted">未上架</span></template></el-table-column>
+            <el-table-column label="管理 IP"  prop="managementIp" sortable="custom" :width="deviceColumnWidths['managementIp']"><template #header><TableSortHeader label="管理 IP" :width="deviceColumnWidths['managementIp']" @sort="sortDeviceBy('managementIp')" @resize="resizeDeviceColumn('managementIp',$event)"/></template></el-table-column>
             <el-table-column label="操作" width="270" fixed="right"><template #default="{ row }">
               <el-button link type="primary" @click="openDevice(row)">编辑</el-button>
               <el-button v-if="scope!=='PC' && row.type?.category!=='PC' && !row.currentPosition" link type="success" :disabled="!['WAITING_RACK','OFF_RACK'].includes(row.lifecycleStatus)" @click="openPosition(row,'ASSIGN')">上架</el-button>
@@ -39,21 +39,21 @@
               <el-button v-if="scope!=='PC'" link @click="showHistory(row)">履历</el-button>
               <el-button link type="danger" :disabled="Boolean(row.currentPosition)" @click="removeDevice(row)">删除</el-button>
             </template></el-table-column>
-          </el-table>
+          <template #empty><el-empty :description="deviceLoadFailed?'加载失败':appliedFilters.search||appliedFilters.typeId||appliedFilters.status?'没有匹配设备':'暂无设备'"><el-button v-if="appliedFilters.search||appliedFilters.typeId||appliedFilters.status" @click="resetSearch">清除筛选</el-button></el-empty></template></el-table>
           <div class="pagination"><el-pagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" :page-sizes="[10,20,50,100]" layout="total, sizes, prev, pager, next" @change="loadDevices" /></div>
         </el-tab-pane>
 
         <el-tab-pane label="设备类型" name="types">
           <div class="tab-action"><el-button type="primary" @click="openType()">新增设备类型</el-button></div>
-          <el-table :data="shownTypes" stripe>
-            <el-table-column prop="code" label="编码" width="140" /><el-table-column prop="name" label="名称" min-width="140" />
-            <el-table-column label="分类" width="150"><template #default="{ row }">{{ categoryLabel(row.category) }}</template></el-table-column>
-            <el-table-column label="默认高度" width="100"><template #default="{ row }">{{ row.defaultHeightU }}U</template></el-table-column>
-            <el-table-column label="双路电源" width="100"><template #default="{ row }">{{ row.defaultDualPower ? '是' : '否' }}</template></el-table-column>
-            <el-table-column label="状态" width="90"><template #default="{ row }"><el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">{{ row.status === 'ACTIVE' ? '启用' : '停用' }}</el-tag></template></el-table-column>
-            <el-table-column prop="description" label="说明" min-width="180" show-overflow-tooltip />
+          <el-input v-model="typeSearch" clearable aria-label="搜索设备类型" placeholder="搜索类型编码、名称或说明" style="max-width:360px;margin-bottom:12px"/><el-table :data="typePageRows" :aria-busy="typeSearch!==typeQuery" ref="typeTableRef" @sort-change="onTypeSortChange" stripe>
+            <el-table-column label="编码"  prop="code" sortable="custom" :width="typeColumnWidths['code']"><template #header><TableSortHeader label="编码" :width="typeColumnWidths['code']" @sort="sortTypeBy('code')" @resize="resizeTypeColumn('code',$event)"/></template></el-table-column><el-table-column label="名称"  prop="name" sortable="custom" :width="typeColumnWidths['name']"><template #header><TableSortHeader label="名称" :width="typeColumnWidths['name']" @sort="sortTypeBy('name')" @resize="resizeTypeColumn('name',$event)"/></template></el-table-column>
+            <el-table-column label="分类" prop="categoryLabel" sortable="custom" :width="typeColumnWidths['categoryLabel']"><template #header><TableSortHeader label="分类" :width="typeColumnWidths['categoryLabel']" @sort="sortTypeBy('categoryLabel')" @resize="resizeTypeColumn('categoryLabel',$event)"/></template><template #default="{ row }">{{ categoryLabel(row.category) }}</template></el-table-column>
+            <el-table-column label="默认高度" prop="defaultHeightU" sortable="custom" :width="typeColumnWidths['defaultHeightU']"><template #header><TableSortHeader label="默认高度" :width="typeColumnWidths['defaultHeightU']" @sort="sortTypeBy('defaultHeightU')" @resize="resizeTypeColumn('defaultHeightU',$event)"/></template><template #default="{ row }">{{ row.defaultHeightU }}U</template></el-table-column>
+            <el-table-column label="双路电源" prop="dualPowerLabel" sortable="custom" :width="typeColumnWidths['dualPowerLabel']"><template #header><TableSortHeader label="双路电源" :width="typeColumnWidths['dualPowerLabel']" @sort="sortTypeBy('dualPowerLabel')" @resize="resizeTypeColumn('dualPowerLabel',$event)"/></template><template #default="{ row }">{{ row.defaultDualPower ? '是' : '否' }}</template></el-table-column>
+            <el-table-column label="状态" prop="statusLabel" sortable="custom" :width="typeColumnWidths['statusLabel']"><template #header><TableSortHeader label="状态" :width="typeColumnWidths['statusLabel']" @sort="sortTypeBy('statusLabel')" @resize="resizeTypeColumn('statusLabel',$event)"/></template><template #default="{ row }"><el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">{{ row.status === 'ACTIVE' ? '启用' : '停用' }}</el-tag></template></el-table-column>
+            <el-table-column label="说明" show-overflow-tooltip  prop="description" sortable="custom" :width="typeColumnWidths['description']"><template #header><TableSortHeader label="说明" :width="typeColumnWidths['description']" @sort="sortTypeBy('description')" @resize="resizeTypeColumn('description',$event)"/></template></el-table-column>
             <el-table-column label="操作" width="130"><template #default="{ row }"><el-button link type="primary" @click="openType(row)">编辑</el-button><el-button link type="danger" @click="removeType(row)">删除</el-button></template></el-table-column>
-          </el-table>
+          <template #empty><el-empty :description="typeQuery?'没有匹配类型':'暂无设备类型'"><el-button v-if="typeQuery" @click="clearTypeSearch">清除筛选</el-button></el-empty></template></el-table><TablePager v-model:page="typePage" v-model:page-size="typePageSize" :total="typeTotal" label="设备类型"/>
         </el-tab-pane>
 
         <el-tab-pane v-if="scope!=='PC'" label="机柜 U 位" name="layout">
@@ -127,6 +127,12 @@
   </div>
 </template>
 <script setup lang="ts">
+import TableSortHeader from '@/components/TableSortHeader.vue'
+import TablePager from '@/components/TablePager.vue'
+import {useClientTable} from '@/features/table/useClientTable'
+import {useColumnWidths} from '@/features/table/useColumnWidths'
+import {useDebouncedValue,type TableOrder} from '@/features/table/useTableView'
+
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox, type TableInstance } from 'element-plus'
 import { useRoute } from 'vue-router'
@@ -152,6 +158,21 @@ const tab = ref('ledger'), loading = ref(false), deviceLoading = ref(false), dev
 const devices = ref<Device[]>([]), deviceImportExisting = ref<Device[]>([]), types = ref<DeviceType[]>([]), tree = ref<DataCenter[]>([]), total = ref(0), page = ref(1), pageSize = ref(20)
 const filters = reactive({ search:'', typeId:'', status:'' })
 const appliedFilters = ref({ ...filters })
+const deviceSortKey=ref(''),deviceSortOrder=ref<TableOrder>(null),deviceLoadFailed=ref(false)
+const deviceSearchQuery=useDebouncedValue(()=>filters.search)
+watch(deviceSearchQuery,()=>{if(filters.search!==appliedFilters.value.search)void search()})
+watch(pageSize,()=>{page.value=1},{flush:'sync'})
+function onDeviceSortChange(event:{prop:string;order:TableOrder}) {
+ const key=event.order?event.prop:''
+ if(deviceSortKey.value===key && deviceSortOrder.value===event.order)return
+ deviceSortKey.value=key;deviceSortOrder.value=event.order;page.value=1;void loadDevices()
+}
+function sortDeviceBy(key:string) {
+ const order=deviceSortKey.value!==key || !deviceSortOrder.value?'ascending':deviceSortOrder.value==='ascending'?'descending':null
+ onDeviceSortChange({prop:key,order})
+ if(order)deviceTable.value?.sort(key,order);else deviceTable.value?.clearSort()
+}
+
 const filtersPending = computed(() => JSON.stringify(filters) !== JSON.stringify(appliedFilters.value))
 const deviceTable = ref<TableInstance>()
 const selectedDevices = ref<Device[]>([])
@@ -161,7 +182,7 @@ const exportFilterSummary = computed(() => `查询范围：${appliedFilters.valu
 let deviceRequest = 0
 function clearDeviceSelection() { deviceTable.value?.clearSelection(); selectedDevices.value = [] }
 function onDeviceSelection(rows: Device[]) { selectedDevices.value = rows }
-function deviceQuery() { return { ...(scope.value ? { scope: scope.value } : {}), search: appliedFilters.value.search || undefined, typeId: appliedFilters.value.typeId || undefined, lifecycleStatus: appliedFilters.value.status || undefined } }
+function deviceQuery() { return { ...(deviceSortKey.value && deviceSortOrder.value ? {sortBy:deviceSortKey.value,sortOrder:deviceSortOrder.value==='ascending'?'asc' as const:'desc' as const}:{}), ...(scope.value ? { scope: scope.value } : {}), search: appliedFilters.value.search || undefined, typeId: appliedFilters.value.typeId || undefined, lifecycleStatus: appliedFilters.value.status || undefined } }
 const deviceDialog = ref(false), deviceImportDialog = ref(false), editingDevice = ref(''), deviceForm = ref<DevicePayload>(createDevicePayload()), deviceAutoCode = ref(true)
 const deviceFormLoading = ref(false), editingDevicePositioned = ref(false), editingDeviceOriginalHeightU = ref<number | undefined>()
 const typeDialog = ref(false), editingType = ref(''), typeForm = ref<DeviceTypePayload>(newType())
@@ -194,13 +215,13 @@ async function loadTree() { try { tree.value=(await getResourceTree()).items } c
 async function loadTypes() { try { types.value=(await listDeviceTypes()).items } catch(e) { fail(e) } }
 async function loadDevices() {
   const request = ++deviceRequest
-  deviceLoading.value = true
+  deviceLoading.value = true;deviceLoadFailed.value=false
   try {
     const result = await listDevices({ ...deviceQuery(), page: page.value, pageSize: pageSize.value })
     if (request !== deviceRequest) return false
     devices.value = result.items; total.value = result.total
     return true
-  } catch (e) { if (request === deviceRequest) fail(e); return false }
+  } catch (e) { if (request === deviceRequest) {deviceLoadFailed.value=true;fail(e)}; return false }
   finally { if (request === deviceRequest) deviceLoading.value = false }
 }
 async function search() {
@@ -351,6 +372,13 @@ onMounted(async()=>{
     if(path.length){tab.value='layout';layoutPath.value=path;await loadLayout()}
   }
 })
+
+const {columnWidths:deviceColumnWidths,resizeColumn:resizeDeviceColumn}=useColumnWidths({"code": 120, "name": 150, "typeName": 110, "assetNumber": 120, "lifecycleStatus": 105, "heightU": 70, "location": 200, "managementIp": 120})
+const {columnWidths:typeColumnWidths,resizeColumn:resizeTypeColumn}=useColumnWidths({"code": 140, "name": 140, "categoryLabel": 150, "defaultHeightU": 100, "dualPowerLabel": 100, "statusLabel": 90, "description": 180})
+const typeSearch=ref(''),typeQuery=useDebouncedValue(typeSearch)
+const filteredTypeRows=computed(()=>shownTypes.value.filter(row=>!typeQuery.value.trim()||[row.code,row.name,row.description].some(value=>String(value||'').toLowerCase().includes(typeQuery.value.trim().toLowerCase()))))
+const {page:typePage,pageSize:typePageSize,total:typeTotal,pageRows:typePageRows,tableRef:typeTableRef,sortBy:sortTypeBy,onSortChange:onTypeSortChange}=useClientTable(filteredTypeRows,{categoryLabel:row=>categoryLabel(row.category),dualPowerLabel:row=>row.defaultDualPower?'是':'否',statusLabel:row=>row.status==='ACTIVE'?'启用':'停用'})
+function clearTypeSearch(){typeSearch.value='';typeQuery.value=''}
 </script>
 
 <style scoped>

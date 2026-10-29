@@ -183,11 +183,23 @@ func TestPostgresConcurrentOverlappingOccupancyOnlyOneCommits(t *testing.T) {
 			if i == 1 {
 				first, last = 12, 15
 			}
-			err := tx.Create(&model.RackUOccupancy{PositionID: uuid.New(), DeviceID: uuid.New(), RackID: rackID, StartU: first, EndU: last}).Error
+			occupancy := model.RackUOccupancy{PositionID: uuid.New(), DeviceID: uuid.New(), RackID: rackID, StartU: first, EndU: last}
+			err := tx.Create(&occupancy).Error
 			if err != nil {
 				_ = tx.Rollback().Error
 			} else {
 				err = tx.Commit().Error
+			}
+			// Exclusion-index arbitration may abort one simultaneous insertion with
+			// 40P01. Retry that entire single-write transaction, not the assertion.
+			// We still require a real 23P01 conflict and exactly one committed row.
+			for attempt := 0; attempt < 2; attempt++ {
+				var deadlock *pgconn.PgError
+				if !errors.As(err, &deadlock) || deadlock.Code != "40P01" {
+					break
+				}
+				t.Log("retrying owned single-write transaction after PostgreSQL 40P01")
+				err = db.WithContext(ctx).Create(&occupancy).Error
 			}
 			results <- err
 		}(i)

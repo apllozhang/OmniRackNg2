@@ -14,18 +14,18 @@
     <el-alert title="系统内置“标准 42U 机柜”模板不可删除或停用；新增版本不会自动修改已创建机柜。" type="info" show-icon :closable="false" />
 
     <el-card shadow="never" class="table-card" v-loading="loading">
-      <el-table :data="templates" stripe>
-        <el-table-column prop="code" label="模板编码" min-width="145" />
-        <el-table-column prop="name" label="模板名称" min-width="170">
+      <el-input v-model="search" clearable aria-label="搜索模板编码或名称" placeholder="搜索模板编码或名称" style="max-width:360px;margin-bottom:12px"/><el-table :data="pageRows" :aria-busy="loading||search!==query" ref="tableRef" @sort-change="onSortChange" stripe>
+        <el-table-column label="模板编码"  prop="code" sortable="custom" :width="columnWidths['code']"><template #header><TableSortHeader label="模板编码" :width="columnWidths['code']" @resize="resizeColumn('code', $event)" @sort="sortBy('code')"/></template></el-table-column>
+        <el-table-column label="模板名称" prop="name" sortable="custom" :width="columnWidths['name']"><template #header><TableSortHeader label="模板名称" :width="columnWidths['name']" @resize="resizeColumn('name', $event)" @sort="sortBy('name')"/></template>
           <template #default="scope">
             <span>{{ scope.row.name }}</span>
             <el-tag v-if="scope.row.isSystem" size="small" class="system-tag">系统</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="当前版本" width="100">
+        <el-table-column label="当前版本" prop="currentRevision" sortable="custom" :width="columnWidths['currentRevision']"><template #header><TableSortHeader label="当前版本" :width="columnWidths['currentRevision']" @resize="resizeColumn('currentRevision', $event)" @sort="sortBy('currentRevision')"/></template>
           <template #default="scope">V{{ scope.row.currentRevision }}</template>
         </el-table-column>
-        <el-table-column label="主要规格" min-width="230">
+        <el-table-column label="主要规格" prop="uHeight" sortable="custom" :width="columnWidths['uHeight']"><template #header><TableSortHeader label="主要规格" :width="columnWidths['uHeight']" @resize="resizeColumn('uHeight', $event)" @sort="sortBy('uHeight')"/></template>
           <template #default="scope">
             <span v-if="latestVersion(scope.row)">
               {{ latestVersion(scope.row)?.uHeight }}U ·
@@ -34,12 +34,12 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="电源/PDU" min-width="150">
+        <el-table-column label="电源/PDU" prop="pduCount" sortable="custom" :width="columnWidths['pduCount']"><template #header><TableSortHeader label="电源/PDU" :width="columnWidths['pduCount']" @resize="resizeColumn('pduCount', $event)" @sort="sortBy('pduCount')"/></template>
           <template #default="scope">
             {{ latestVersion(scope.row)?.dualPower ? '双路' : '单路/未配置' }} · PDU {{ latestVersion(scope.row)?.pduCount ?? 0 }}
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="90">
+        <el-table-column label="状态" prop="statusLabel" sortable="custom" :width="columnWidths['statusLabel']"><template #header><TableSortHeader label="状态" :width="columnWidths['statusLabel']" @resize="resizeColumn('statusLabel', $event)" @sort="sortBy('statusLabel')"/></template>
           <template #default="scope"><el-tag :type="scope.row.status === 'ACTIVE' ? 'success' : 'info'">{{ scope.row.status === 'ACTIVE' ? '启用' : '停用' }}</el-tag></template>
         </el-table-column>
         <el-table-column label="操作" width="220" fixed="right">
@@ -49,7 +49,7 @@
             <el-button link type="danger" :disabled="scope.row.isSystem" @click="removeTemplate(scope.row)">删除</el-button>
           </template>
         </el-table-column>
-      </el-table>
+      <template #empty><el-empty :description="templates.length ? '没有匹配结果' : '暂无记录'"><el-button v-if="query" @click="clearSearch">清除筛选</el-button></el-empty></template></el-table><TablePager v-model:page="page" v-model:page-size="pageSize" :total="total" label="机柜模板"/>
       <el-empty v-if="!loading && !templates.length" description="暂无机柜模板" />
     </el-card>
 
@@ -80,6 +80,13 @@
 </template>
 
 <script setup lang="ts">
+import { useColumnWidths } from '@/features/table/useColumnWidths'
+
+import TableSortHeader from '@/components/TableSortHeader.vue'
+import TablePager from '@/components/TablePager.vue'
+import { useDebouncedValue } from '@/features/table/useTableView'
+import { useClientTable } from '@/features/table/useClientTable'
+
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import RackTemplateSpecForm from '@/components/RackTemplateSpecForm.vue'
@@ -170,7 +177,15 @@ function errorMessage(error: unknown) {
   return value.response?.data?.message ?? value.message ?? '操作失败'
 }
 
+
+const search = ref('')
+const query = useDebouncedValue(search)
+const filteredRows = computed(() => templates.value.filter(row => !query.value.trim() || [row.code, row.name, row.description].some(value => String(value || '').toLowerCase().includes(query.value.trim().toLowerCase()))))
+function clearSearch() { search.value = ''; query.value = '' }
+const { page, pageSize, total, pageRows, tableRef, sortBy, onSortChange } = useClientTable(filteredRows, {uHeight: row => latestVersion(row)?.uHeight, pduCount: row => latestVersion(row)?.pduCount, statusLabel: row => row.status==='ACTIVE'?'启用':'停用'})
+
 onMounted(loadTemplates)
+const { columnWidths, resizeColumn } = useColumnWidths({"code": 145, "name": 170, "currentRevision": 100, "uHeight": 230, "pduCount": 150, "statusLabel": 90})
 </script>
 
 <style scoped>

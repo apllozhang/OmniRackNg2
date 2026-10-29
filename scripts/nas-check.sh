@@ -11,7 +11,7 @@ mkdir -p "$out"
 (cd "$root/frontend" && npm run build) > "$out/frontend-build.log" 2>&1
 (cd "$root" && python3 scripts/api-contract.py --check) > "$out/api-contract.log" 2>&1
 (cd "$root/backend" && CGO_ENABLED=0 go build -trimpath -buildvcs=false -o "$out/omnirack-server" ./cmd/server) > "$out/backend-build.log" 2>&1
-python3 "$root/scripts/integration-replica.py" --pg-image postgres:16-alpine --go-invariants --server "$out/omnirack-server" --output "$out/integration" > "$out/integration.log" 2>&1
+python3 "$root/scripts/integration-replica.py" --pg-image postgres:16-alpine --go-invariants --business-workflows --server "$out/omnirack-server" --output "$out/integration" > "$out/integration.log" 2>&1
 # Marker is written only after every command exits successfully; raw logs remain on failure.
 python3 - "$out" <<'PY'
 import json,sys

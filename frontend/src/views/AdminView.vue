@@ -9,16 +9,16 @@
       <el-tabs v-model="tab" @tab-change="tabChanged">
         <el-tab-pane label="用户管理" name="users">
           <div class="toolbar"><el-input v-model="userSearch" clearable placeholder="搜索用户名或显示名称" style="width:280px" @keyup.enter="loadUsers" /><el-select v-model="userSource" clearable placeholder="账号来源" style="width:150px"><el-option label="本地账号" value="local" /><el-option label="LDAP 账号" value="ldap" /></el-select><el-button type="primary" @click="loadUsers">查询</el-button><el-button @click="openUser()">新增用户</el-button></div>
-          <el-table v-loading="userLoading" :data="users" stripe>
-            <el-table-column prop="username" label="用户名" min-width="150" />
-            <el-table-column prop="displayName" label="显示名称" min-width="150" />
-            <el-table-column prop="email" label="邮箱" min-width="180" />
-            <el-table-column label="来源" width="110"><template #default="{row}"><el-tag>{{ row.authSource === 'ldap' ? 'LDAP' : '本地' }}</el-tag></template></el-table-column>
-            <el-table-column label="角色" min-width="180"><template #default="{row}"><el-tag v-for="role in row.roles ?? []" :key="role.code" size="small" class="role-tag">{{ role.name }}</el-tag></template></el-table-column>
-            <el-table-column label="状态" width="90"><template #default="{row}"><el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? '启用' : '停用' }}</el-tag></template></el-table-column>
-            <el-table-column label="最后登录" width="180"><template #default="{row}">{{ formatTime(row.lastLoginAt) }}</template></el-table-column>
-            <el-table-column label="操作" width="300" fixed="right"><template #default="{row}"><el-button link type="primary" @click="openUser(row)">编辑</el-button><el-button link @click="toggleUser(row)">{{ row.enabled ? '停用' : '启用' }}</el-button><el-button link @click="resetPassword(row)">重置密码</el-button><el-button link type="danger" @click="removeUser(row)">删除</el-button></template></el-table-column>
-          </el-table>
+          <el-alert v-if="userLoadFailed" title="加载失败，当前行可能不是最新账号列表，请刷新重试" type="error" :closable="false"/><el-table :aria-busy="userLoading||userSearch!==userSearchQuery" ref="userTableRef" @sort-change="onUserSortChange" v-loading="userLoading" :data="userPageRows" stripe>
+            <el-table-column label="用户名"  prop="username" sortable="custom" :width="userWidths['username']"><template #header><TableSortHeader label="用户名" :width="userWidths['username']" @sort="sortUserBy('username')" @resize="resizeUserColumn('username',$event)"/></template></el-table-column>
+            <el-table-column label="显示名称"  prop="displayName" sortable="custom" :width="userWidths['displayName']"><template #header><TableSortHeader label="显示名称" :width="userWidths['displayName']" @sort="sortUserBy('displayName')" @resize="resizeUserColumn('displayName',$event)"/></template></el-table-column>
+            <el-table-column label="邮箱"  prop="email" sortable="custom" :width="userWidths['email']"><template #header><TableSortHeader label="邮箱" :width="userWidths['email']" @sort="sortUserBy('email')" @resize="resizeUserColumn('email',$event)"/></template></el-table-column>
+            <el-table-column label="来源" prop="sourceLabel" sortable="custom" :width="userWidths['sourceLabel']"><template #header><TableSortHeader label="来源" :width="userWidths['sourceLabel']" @sort="sortUserBy('sourceLabel')" @resize="resizeUserColumn('sourceLabel',$event)"/></template><template #default="{row}"><el-tag>{{ row.authSource === 'ldap' ? 'LDAP' : '本地' }}</el-tag></template></el-table-column>
+            <el-table-column label="角色" prop="rolesLabel" sortable="custom" :width="userWidths['rolesLabel']"><template #header><TableSortHeader label="角色" :width="userWidths['rolesLabel']" @sort="sortUserBy('rolesLabel')" @resize="resizeUserColumn('rolesLabel',$event)"/></template><template #default="{row}"><el-tag v-for="role in row.roles ?? []" :key="role.code" size="small" class="role-tag">{{ role.name }}</el-tag></template></el-table-column>
+            <el-table-column label="状态" prop="statusLabel" sortable="custom" :width="userWidths['statusLabel']"><template #header><TableSortHeader label="状态" :width="userWidths['statusLabel']" @sort="sortUserBy('statusLabel')" @resize="resizeUserColumn('statusLabel',$event)"/></template><template #default="{row}"><el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? '启用' : '停用' }}</el-tag></template></el-table-column>
+            <el-table-column label="最后登录" prop="lastLoginAt" sortable="custom" :width="userWidths['lastLoginAt']"><template #header><TableSortHeader label="最后登录" :width="userWidths['lastLoginAt']" @sort="sortUserBy('lastLoginAt')" @resize="resizeUserColumn('lastLoginAt',$event)"/></template><template #default="{row}">{{ formatTime(row.lastLoginAt) }}</template></el-table-column>
+            <el-table-column label="操作" width="300" fixed="right"><template #default="{row}"><el-button :disabled="userLoading||userLoadFailed" link type="primary" @click="openUser(row)">编辑</el-button><el-button :disabled="userLoading||userLoadFailed" link @click="toggleUser(row)">{{ row.enabled ? '停用' : '启用' }}</el-button><el-button :disabled="userLoading||userLoadFailed" link @click="resetPassword(row)">重置密码</el-button><el-button :disabled="userLoading||userLoadFailed" link type="danger" @click="removeUser(row)">删除</el-button></template></el-table-column>
+          <template #empty><el-empty :description="userSearch||userSource?'没有匹配账号':'暂无账号'"><el-button v-if="userSearch||userSource" @click="clearUserSearch">清除筛选</el-button></el-empty></template></el-table><TablePager v-model:page="userPage" v-model:page-size="userPageSize" :total="userTotal" label="账号列表"/>
         </el-tab-pane>
         <el-tab-pane label="LDAP 配置" name="ldap">
           <el-alert title="Bind 密码只用于服务器端连接，不会回显；留空保存时表示保留原密码。建议生产环境使用 LDAPS 或启用 TLS。" type="warning" :closable="false" show-icon />
@@ -32,7 +32,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import TableSortHeader from '@/components/TableSortHeader.vue'
+import TablePager from '@/components/TablePager.vue'
+import {useClientTable} from '@/features/table/useClientTable'
+import {useColumnWidths} from '@/features/table/useColumnWidths'
+import {useDebouncedValue} from '@/features/table/useTableView'
+
+import { onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createAdminUser, deleteAdminUser, getLDAPConfig, listAdminRoles, listAdminUsers, resetAdminPassword, testLDAPConfig, updateAdminUser, updateLDAPConfig } from '@/api/admin'
 import type { LDAPConfig, ManagedUser, UserPayload } from '@/types/admin'
@@ -41,16 +47,18 @@ import type { Role } from '@/types/auth'
 const tab = ref('users'), loading = ref(false), userLoading = ref(false), userSaving = ref(false), ldapSaving = ref(false), ldapTesting = ref(false)
 const users = ref<ManagedUser[]>([]), roles = ref<Role[]>([])
 const userSearch = ref(''), userSource = ref('')
-const ldap = ref<LDAPConfig>(newLDAP()), userDialog = ref(false), editingUser = ref('')
+const ldap = ref<LDAPConfig>(newLDAP()), userDialog = ref(false), editingUser = ref(''), editingUserVersion=ref(0)
 const userForm = reactive<UserPayload>({ username:'', displayName:'', email:'', password:'', authSource:'local', enabled:true, roleCodes:['user'] })
 function newLDAP(): LDAPConfig { return { enabled:false,url:'',useTls:false,skipTlsVerify:false,bindDn:'',bindPassword:'',baseDn:'',userFilter:'(|(uid={{username}})(sAMAccountName={{username}}))',usernameAttribute:'uid',displayNameAttribute:'displayName',emailAttribute:'mail',defaultRole:'user',allowLocalFallback:true,groupSearchBaseDn:'',groupFilter:'(&(objectClass=groupOfNames)(member={{userDN}}))',groupAttribute:'cn',groupRoleMappings:[] } }
 function resetUser(){ Object.assign(userForm,{username:'',displayName:'',email:'',password:'',authSource:'local',enabled:true,roleCodes:['user']}) }
 async function refresh(){ loading.value=true; try { await Promise.all([loadUsers(),loadRoles()]); if(tab.value==='ldap') await loadLDAP() } finally { loading.value=false } }
-async function loadUsers(){userLoading.value=true;try{users.value=(await listAdminUsers({search:userSearch.value||undefined,authSource:userSource.value||undefined})).items}catch(e){fail(e)}finally{userLoading.value=false}}
+let userRequest=0
+const userLoadFailed=ref(false)
+async function loadUsers(){const request=++userRequest;userPage.value=1;userLoading.value=true;userLoadFailed.value=false;try{const next=await listAdminUsers({search:userSearch.value||undefined,authSource:userSource.value||undefined});if(request!==userRequest)return;users.value=next.items}catch(e){if(request===userRequest){userLoadFailed.value=true;fail(e)}}finally{if(request===userRequest)userLoading.value=false}}
 async function loadRoles(){try{roles.value=(await listAdminRoles()).items}catch(e){fail(e)}}
 async function tabChanged(value:string|number){if(value==='ldap')await loadLDAP()}
-function openUser(item?:ManagedUser){editingUser.value=item?.id??'';if(item){Object.assign(userForm,{username:item.username,displayName:item.displayName,email:item.email ?? '',password:'',authSource:item.authSource,enabled:item.enabled,roleCodes:(item.roles??[]).map(i=>i.code)})}else resetUser();userDialog.value=true}
-async function saveUser(){if(!userForm.displayName.trim()||(!editingUser.value&&!userForm.username?.trim())||!userForm.roleCodes.length){ElMessage.warning('请填写显示名称、用户名并至少选择一个角色');return}userSaving.value=true;try{if(editingUser.value){const item=users.value.find(i=>i.id===editingUser.value);await updateAdminUser(editingUser.value,item?.version??0,userForm)}else await createAdminUser(userForm);ElMessage.success('用户保存成功');userDialog.value=false;await loadUsers()}catch(e){fail(e)}finally{userSaving.value=false}}
+function openUser(item?:ManagedUser){editingUser.value=item?.id??'';editingUserVersion.value=item?.version??0;if(item){Object.assign(userForm,{username:item.username,displayName:item.displayName,email:item.email ?? '',password:'',authSource:item.authSource,enabled:item.enabled,roleCodes:(item.roles??[]).map(i=>i.code)})}else resetUser();userDialog.value=true}
+async function saveUser(){if(!userForm.displayName.trim()||(!editingUser.value&&!userForm.username?.trim())||!userForm.roleCodes.length){ElMessage.warning('请填写显示名称、用户名并至少选择一个角色');return}userSaving.value=true;try{if(editingUser.value){await updateAdminUser(editingUser.value,editingUserVersion.value,userForm)}else await createAdminUser(userForm);ElMessage.success('用户保存成功');userDialog.value=false;await loadUsers()}catch(e){fail(e)}finally{userSaving.value=false}}
 async function toggleUser(item:ManagedUser){const next=!item.enabled;try{await updateAdminUser(item.id,item.version,{username:item.username,displayName:item.displayName,email:item.email ?? '',authSource:item.authSource,enabled:next,roleCodes:(item.roles??[]).map(i=>i.code)});ElMessage.success(next?'用户已启用':'用户已停用');await loadUsers()}catch(e){fail(e)}}
 async function resetPassword(item:ManagedUser){try{const result=await ElMessageBox.prompt('请输入新密码（至少 8 位）','重置密码',{inputType:'password',inputPlaceholder:'新密码'});await resetAdminPassword(item.id,item.version,result.value);ElMessage.success('密码已重置');await loadUsers()}catch(e){cancelOrFail(e)}}
 async function removeUser(item:ManagedUser){try{await ElMessageBox.confirm(`确认删除用户“${item.displayName}”吗？`,'删除用户',{type:'warning'});await deleteAdminUser(item.id,item.version);ElMessage.success('用户已删除');await loadUsers()}catch(e){cancelOrFail(e)}}
@@ -62,7 +70,12 @@ function removeLDAPMapping(index:number){ldap.value.groupRoleMappings.splice(ind
 function formatTime(v?:string){return v?new Date(v).toLocaleString('zh-CN',{hour12:false}):'-'}
 function message(e:unknown){const x=e as {response?:{data?:{message?:string}};message?:string};return x.response?.data?.message??x.message??'操作失败'}
 function fail(e:unknown){ElMessage.error(message(e))}function cancelOrFail(e:unknown){if(e!=='cancel'&&e!=='close')fail(e)}
+const {page:userPage,pageSize:userPageSize,total:userTotal,pageRows:userPageRows,tableRef:userTableRef,sortBy:sortUserBy,onSortChange:onUserSortChange}=useClientTable(users,{sourceLabel:row=>row.authSource==='ldap'?'LDAP':'本地',rolesLabel:row=>(row.roles||[]).map(role=>role.name).sort().join('、'),statusLabel:row=>row.enabled?'启用':'停用',lastLoginAt:row=>row.lastLoginAt?Date.parse(row.lastLoginAt):null})
+const userSearchQuery=useDebouncedValue(userSearch)
+watch([userSearchQuery,userSource],()=>{void loadUsers()})
+function clearUserSearch(){userSearch.value='';userSearchQuery.value='';userSource.value='';void loadUsers()}
 onMounted(refresh)
+const {columnWidths:userWidths,resizeColumn:resizeUserColumn}=useColumnWidths({"username": 150, "displayName": 150, "email": 180, "sourceLabel": 110, "rolesLabel": 180, "statusLabel": 110, "lastLoginAt": 180})
 </script>
 <style scoped>
 .admin-page{max-width:1560px;margin:0 auto}.page-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}.page-header h2{margin:0 0 8px}.page-header p{margin:0;color:var(--color-text-muted)}.notice{margin-bottom:16px}.toolbar,.form-actions{display:flex;gap:10px;align-items:center;margin-bottom:16px}.role-tag{margin-right:5px}.policy-form,.ldap-form{margin-top:20px}.form-actions{justify-content:flex-end}.muted{color:var(--color-text-muted)}.mapping-help{color:var(--color-text-muted);font-size:13px;margin:-6px 0 14px 150px}.mapping-row{display:flex;gap:10px;align-items:center;margin:0 0 10px 150px}.mapping-row .el-input{max-width:420px;flex:1}

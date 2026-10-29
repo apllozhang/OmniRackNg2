@@ -7,9 +7,9 @@ const rows = Array.from({ length: 205 }, (_, index) => ({ id: `id-${index}` } as
 beforeEach(() => vi.resetAllMocks())
 it('fetches every page with identical filters', async () => {
   mocks.listDevices.mockImplementation(async ({ page, pageSize }) => ({ items: rows.slice((page - 1) * pageSize, page * pageSize), total: rows.length }))
-  expect(await collectDeviceExport({ typeId: 'server', search: '主机' })).toEqual(rows)
+  expect(await collectDeviceExport({ typeId: 'server', search: '主机', sortBy: 'name', sortOrder: 'desc' })).toEqual(rows)
   expect(mocks.listDevices).toHaveBeenCalledTimes(3)
-  for (const [query] of mocks.listDevices.mock.calls) expect(query).toMatchObject({ typeId: 'server', search: '主机', pageSize: 100 })
+  for (const [query] of mocks.listDevices.mock.calls) expect(query).toMatchObject({ typeId: 'server', search: '主机', sortBy: 'name', sortOrder: 'desc', pageSize: 100 })
 })
 it('rejects duplicate or incomplete pages', async () => {
   mocks.listDevices.mockResolvedValue({ items: rows.slice(0, 100), total: 205 })
